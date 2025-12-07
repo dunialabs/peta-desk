@@ -1,0 +1,103 @@
+appId: com.kompas.ai.peta
+productName: Peta Desk
+
+# URL Protocol 支持
+protocols:
+  - name: PETA Protocol
+    schemes:
+      - petadesk
+    role: Editor
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - electron/**/*
+  - '!electron/main-fixed.js'
+  - '!electron/main-simple.js'
+  - node_modules/**/*
+  - '!**/*.md'
+  - '!**/*.markdown'
+  - '!**/*.map'
+  - '!**/*.d.ts'
+  - '!**/test{,s}/**'
+  - '!**/tests/**'
+  - '!**/example{,s}/**'
+  - '!**/examples/**'
+  - '!**/iconv-lite/encodings/tables/*.json'
+  - '!**/node_modules/.bin'
+  - '!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}'
+  - '!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}'
+  - '!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}'
+
+extraResources:
+  - from: frontend/out
+    to: frontend/out
+    filter:
+      - '**/*'
+  - from: frontend/public/ConnectFailed.png
+    to: frontend/public/ConnectFailed.png
+  - from: frontend/public/Connecting.png
+    to: frontend/public/Connecting.png
+  - from: frontend/public/PasswordRequire.png
+    to: frontend/public/PasswordRequire.png
+  - from: electron/icon.png
+    to: electron/icon.png
+
+asar: true
+compression: normal
+
+mac:
+  category: public.app-category.developer-tools
+  icon: electron/icon512.png
+  hardenedRuntime: true
+  gatekeeperAssess: true
+  identity: "ByteBridge Co., Ltd. (9WPQQ8Q9RQ)"
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # 移除未使用的权限描述
+  extendInfo:
+    NSBluetoothAlwaysUsageDescription: null
+    NSBluetoothPeripheralUsageDescription: null
+    NSCameraUsageDescription: null
+    NSMicrophoneUsageDescription: null
+  target:
+    - target: dir
+      arch:
+        - arm64
+        - x64
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - ia32
+  icon: electron/icon512.png
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: true
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Development
+  icon: electron/icon512.png

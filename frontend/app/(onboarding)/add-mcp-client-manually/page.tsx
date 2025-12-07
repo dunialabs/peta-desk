@@ -1,0 +1,379 @@
+'use client'
+
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Header from '@/components/common/header'
+import { ArrowLeft, Copy, Check, Edit2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
+function AddMCPClientManuallyContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const mode = searchParams.get('mode')
+  const [copied, setCopied] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [jsonContent, setJsonContent] = useState('')
+  const [jsonError, setJsonError] = useState('')
+  const [isValidating, setIsValidating] = useState(false)
+  const [validationMessage, setValidationMessage] = useState('')
+  
+  // UUID generation utility function
+  function generateUUID(): string {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID()
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = (Math.random() * 16) | 0
+      const v = c === 'x' ? r : (r & 0x3) | 0x8
+      return v.toString(16)
+    })
+  }
+
+  useEffect(() => {
+    // Get server information
+    if (typeof window !== 'undefined') {
+      // First try to get from editing server information
+      const editingServer = localStorage.getItem('editingServer')
+      if (editingServer) {
+        const server = JSON.parse(editingServer)
+        setServerInfo({
+          name: server.serverName || 'Peta Desk',
+          address: server.serverUrl || 'https://api.peta.com/mcp',
+          apiKey: server.token || 'your-api-key-here'
+        })
+      } else {
+        // Otherwise get from saved server information
+        const storedName = localStorage.getItem('serverName')
+        const storedAddress = localStorage.getItem('serverAddress')
+
+        if (storedName && storedAddress) {
+          setServerInfo((prev) => ({
+            ...prev,
+            name: storedName,
+            address: storedAddress
+          }))
+        }
+      }
+    }
+  }, [])
+
+  const handleBack = () => {
+    // Return to client management page
+    router.push('/client-management')
+  }
+
+  // Generate configuration ID
+  const configId = generateUUID()
+
+  // Note: MCP proxy configuration has been removed
+  // This functionality is deprecated as the proxy layer is no longer used
+  const generateMCPConfig = () => {
+    return {
+      command: 'deprecated',
+      args: []
+    }
+  }
+
+  // Initialize JSON content
+  useEffect(() => {
+    if (!jsonContent) {
+      const mcpConfig = generateMCPConfig()
+      const initialJson = {
+        mcpServers: {
+          "My Peta Server": mcpConfig
+        }
+      }
+      setJsonContent(JSON.stringify(initialJson, null, 2))
+    }
+  }, [configId, jsonContent])
+
+  // Handle JSON editing
+  const handleJsonChange = (value: string) => {
+    setJsonContent(value)
+    setValidationMessage('') // Clear validation message
+    try {
+      JSON.parse(value)
+      setJsonError('')
+    } catch (e) {
+      setJsonError('Invalid JSON format')
+    }
+  }
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(jsonContent)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy text: ', err)
+    }
+  }
+
+  // Test server connection
+  const testServerConnection = async (serverUrl: string, token: string): Promise<boolean> => {
+    try {
+      setIsValidating(true)
+      setValidationMessage('Testing server connection...')
+
+      // Call Electron API to test connection
+      if (window.electron && window.electron.testMCPServer) {
+        const result = await window.electron.testMCPServer(serverUrl, token)
+
+        if (result.success) {
+          setValidationMessage('✅ Connection successful!')
+          return true
+        } else {
+          setValidationMessage(`❌ Connection failed: ${result.error || 'Unable to connect'}`)
+          return false
+        }
+      } else {
+        // If no Electron API available, use simulated test
+        await new Promise(resolve => setTimeout(resolve, 1500))
+
+        // Simple URL format validation
+        try {
+          new URL(serverUrl)
+          if (!token || token.length < 5) {
+            setValidationMessage('❌ Token appears to be invalid')
+            return false
+          }
+          setValidationMessage('✅ Configuration validated (test mode)')
+          return true
+        } catch {
+          setValidationMessage('❌ Invalid server URL format')
+          return false
+        }
+      }
+    } catch (error) {
+      setValidationMessage(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      return false
+    } finally {
+      setIsValidating(false)
+    }
+  }
+
+  const handleCompleteSetup = async () => {
+    // Validate JSON format
+    if (jsonError) {
+      alert('Please fix JSON errors before completing setup')
+      return
+    }
+
+    try {
+      const parsedJson = JSON.parse(jsonContent)
+      const serverKey = Object.keys(parsedJson.mcpServers)[0]
+      const serverConfig = parsedJson.mcpServers[serverKey]
+
+      // Extract configuration information from args
+      let extractedConfigId = configId
+      let extractedServerUrl = 'https://your-server-url.com'
+      let extractedToken = 'your-token-here'
+
+      if (serverConfig.args && Array.isArray(serverConfig.args)) {
+        const configIdIndex = serverConfig.args.indexOf('--config-id')
+        if (configIdIndex !== -1 && configIdIndex < serverConfig.args.length - 1) {
+          extractedConfigId = serverConfig.args[configIdIndex + 1]
+        }
+
+        const serverUrlIndex = serverConfig.args.indexOf('--server-url')
+        if (serverUrlIndex !== -1 && serverUrlIndex < serverConfig.args.length - 1) {
+          extractedServerUrl = serverConfig.args[serverUrlIndex + 1]
+        }
+
+        const tokenIndex = serverConfig.args.indexOf('--token')
+        if (tokenIndex !== -1 && tokenIndex < serverConfig.args.length - 1) {
+          extractedToken = serverConfig.args[tokenIndex + 1]
+        }
+      }
+
+      // Check if default values have been modified
+      if (extractedServerUrl === 'https://your-server-url.com' || extractedToken === 'your-token-here') {
+        setValidationMessage('❌ Please edit the server URL and token before completing setup')
+        return
+      }
+
+      // Test server connection
+      const isConnected = await testServerConnection(extractedServerUrl, extractedToken)
+      if (!isConnected) {
+        // Connection failed but still allow user to choose to continue
+        const confirmContinue = confirm(
+          'Server connection test failed. Do you still want to save this configuration?\n\n' +
+          'You can update the configuration later if needed.'
+        )
+        if (!confirmContinue) {
+          return
+        }
+      }
+
+      // Save manually added configuration information
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mcpClientManuallyAdded', 'true')
+
+        // Save configuration to localStorage for dashboard recognition
+        const manualConfig = {
+          id: extractedConfigId,
+          serverName: serverKey,
+          serverUrl: extractedServerUrl,
+          token: extractedToken,
+          clientType: 'manual',
+          enabled: true,
+          configId: extractedConfigId,
+          createdAt: new Date().toISOString(),
+          type: 'manual'
+        }
+
+        // Get existing manual configurations
+        const existingManualConfigs = JSON.parse(localStorage.getItem('manualMcpConfigs') || '[]')
+        existingManualConfigs.push(manualConfig)
+        localStorage.setItem('manualMcpConfigs', JSON.stringify(existingManualConfigs))
+
+        if (mode === 'add' || mode === 'edit') {
+          router.push('/server-management')
+        } else {
+          // Continue onboarding flow
+          router.push('/restart-client')
+        }
+      }
+    } catch (error) {
+      console.error('Failed to parse JSON:', error)
+      alert('Invalid JSON configuration')
+    }
+  }
+
+  const handleCancel = () => {
+    handleBack()
+  }
+
+  return (
+    <div className="h-screen flex flex-col">
+      <Header showLockButton={false}>
+        {/* Show back button */}
+        <button
+          onClick={handleBack}
+          className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 hover:bg-gray-100 dark:bg-gray-800 rounded transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+      </Header>
+
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-2xl">
+          {/* Main Content Card */}
+          <div>
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-[#0A2E6D] mb-4">
+                Add MCP Client
+                <br />
+                Manually
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed max-w-md mx-auto">
+                Edit the JSON below to replace <code className="bg-gray-200 px-1 rounded">your-server-url.com</code>
+                <br />
+                and <code className="bg-gray-200 px-1 rounded">your-token-here</code> with your actual values.
+              </p>
+            </div>
+
+
+            {/* JSON Code Block with Edit Toggle */}
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">JSON Configuration</h3>
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 transition-colors"
+              >
+                <Edit2 className="w-4 h-4" />
+                {isEditing ? 'Save' : 'Edit'}
+              </button>
+            </div>
+            
+            {/* JSON Code Block */}
+            <div className="relative mb-8">
+              <div className="bg-gray-800 rounded-xl p-6 text-gray-100 font-mono text-sm overflow-x-auto leading-relaxed">
+                {isEditing ? (
+                  <textarea
+                    value={jsonContent}
+                    onChange={(e) => handleJsonChange(e.target.value)}
+                    className="w-full h-64 bg-transparent text-gray-200 border-none outline-none resize-none font-mono text-sm"
+                    spellCheck={false}
+                  />
+                ) : (
+                  <pre className="whitespace-pre-wrap text-gray-200">
+                    {jsonContent}
+                  </pre>
+                )}
+              </div>
+              
+              {/* Show JSON error if any */}
+              {jsonError && isEditing && (
+                <div className="mt-2 text-red-500 dark:text-red-400 text-sm">{jsonError}</div>
+              )}
+              
+              {/* Show validation message */}
+              {validationMessage && (
+                <div className={`mt-2 text-sm ${
+                  validationMessage.includes('✅') ? 'text-green-600' : 
+                  validationMessage.includes('❌') ? 'text-red-500' : 
+                  'text-blue-500'
+                }`}>
+                  {validationMessage}
+                </div>
+              )}
+
+              {/* Copy Button */}
+              <button
+                onClick={handleCopy}
+                className="absolute top-4 right-4 flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all shadow-md text-sm"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <Button
+                onClick={handleCompleteSetup}
+                disabled={isValidating}
+                className="w-full h-[22px] text-[13px] px-[7px] py-[3px] bg-[#007AFF] rounded-[5px] text-sm text-[#fff] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isValidating ? 'Validating...' : 'Complete Setup'}
+              </Button>
+
+              <Button
+                onClick={handleCancel}
+                variant="outline"
+                className="w-full h-[22px] text-[13px] px-[7px] py-[3px] bg-[#fff] rounded-[5px] text-sm text-gray-700 dark:text-gray-200 transition-all"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function AddMCPClientManuallyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <AddMCPClientManuallyContent />
+    </Suspense>
+  )
+}

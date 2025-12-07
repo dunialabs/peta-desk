@@ -1,0 +1,31 @@
+{
+  "name": "Peta-Desk",
+  "version": "1.0.0",
+  "description": "Model Context Protocol Desktop Application",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "node start-dev.js",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:frontend && electron-builder",
+    "build:mac": "npm run build:frontend && electron-builder --mac",
+    "build:win": "npm run build:frontend && electron-builder --win",
+    "build:linux": "npm run build:frontend && electron-builder --linux",
+    "dist": "npm run build:frontend && electron-builder --mac --publish never",
+    "build:frontend": "cd frontend && npm run build",
+    "install:all": "node install-deps.js"
+  },
+  "author": "Dunia Labs, Inc.",
+  "license": "Elastic-2.0",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^38.7.0",
+    "electron-builder": "^24.9.1",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "get-port": "^5.1.1",
+    "googleapis": "^164.1.0",
+    "socket.io-client": "^4.8.1",
+    "win-hello": "^1.1.1"
+  }
+}

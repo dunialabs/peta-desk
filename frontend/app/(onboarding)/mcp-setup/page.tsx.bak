@@ -1,0 +1,334 @@
+'use client'
+
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Header from '@/components/common/header'
+import { Settings, Lock } from 'lucide-react'
+import { useSocket } from '@/contexts/socket-context'
+import { PasswordDialog } from '@/components/common/password-dialog'
+
+function MCPSetupContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const mode = searchParams.get('mode') || 'add'
+  const editId = searchParams.get('id')
+  const { connectToServer } = useSocket()
+
+  const [serverName, setServerName] = useState('My Peta Server')
+  const [serverAddress, setServerAddress] = useState('')
+  const [accessToken, setAccessToken] = useState('')
+  const [isValidating, setIsValidating] = useState(false)
+  const [validationMessage, setValidationMessage] = useState('')
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [masterPassword, setMasterPassword] = useState('')
+
+  // Check if form is valid (required fields filled)
+  const isFormValid =
+    serverName.trim().length > 0 &&
+    serverAddress.trim().length > 0 &&
+    accessToken.trim().length > 0
+
+  // Load existing server data if editing
+  useEffect(() => {
+    if (mode === 'edit' && editId) {
+      const existingServers = JSON.parse(
+        localStorage.getItem('mcpServers') || '[]'
+      )
+      const serverToEdit = existingServers.find((s: any) => s.id === editId)
+      if (serverToEdit) {
+        setServerName(serverToEdit.serverName)
+        setServerAddress(serverToEdit.serverUrl)
+        setAccessToken(serverToEdit.token || '')
+      }
+    }
+  }, [mode, editId])
+
+  const handleTest = async () => {
+    if (!serverAddress.trim()) {
+      setValidationMessage('Please enter server address')
+      return
+    }
+
+    setIsValidating(true)
+    setValidationMessage('Testing connection...')
+
+    try {
+      // Test server connection
+      if (window.electron && window.electron.testMCPServer) {
+        const result = await window.electron.testMCPServer(
+          serverAddress,
+          accessToken
+        )
+
+        if (result.success) {
+          setValidationMessage('✅ Connection successful!')
+        } else {
+          setValidationMessage(
+            `❌ Connection failed: ${result.error || 'Unable to connect'}`
+          )
+        }
+      } else {
+        // Simulated test for development
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+
+        try {
+          new URL(serverAddress)
+          setValidationMessage('✅ Configuration validated (test mode)')
+        } catch {
+          setValidationMessage('❌ Invalid server URL format')
+        }
+      }
+    } catch (error) {
+      setValidationMessage(
+        `❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    } finally {
+      setIsValidating(false)
+    }
+  }
+
+  const handleCompleteSetup = async () => {
+    if (!serverAddress.trim()) {
+      alert('Please enter server address')
+      return
+    }
+
+    if (!accessToken.trim()) {
+      alert('Please enter access token')
+      return
+    }
+
+    // If access token exists but no master password entered, show password dialog
+    if (!masterPassword) {
+      setShowPasswordDialog(true)
+      return
+    }
+
+    // Encrypt the access token with master password
+    let encryptedToken: string
+    try {
+      if (window.electron?.crypto) {
+        const result = await window.electron.crypto.encryptToken(accessToken, masterPassword)
+        if (result.success) {
+          encryptedToken = result.encryptedToken
+          console.log('✅ Token encrypted successfully')
+        } else {
+          alert('Failed to encrypt token: ' + (result.error || 'Unknown error'))
+          return
+        }
+      } else {
+        alert('Encryption service not available. Please restart the application.')
+        return
+      }
+    } catch (error) {
+      console.error('Failed to encrypt token:', error)
+      alert('Failed to encrypt token. Please try again.')
+      return
+    }
+
+    const existingServers = JSON.parse(
+      localStorage.getItem('mcpServers') || '[]'
+    )
+
+    let serverId: string
+
+    if (mode === 'edit' && editId) {
+      // Update existing server
+      const updatedServers = existingServers.map((s: any) => {
+        if (s.id === editId) {
+          return {
+            ...s,
+            serverName: serverName,
+            serverUrl: serverAddress,
+            token: encryptedToken
+          }
+        }
+        return s
+      })
+      localStorage.setItem('mcpServers', JSON.stringify(updatedServers))
+      serverId = editId
+    } else {
+      // Add new server
+      serverId = crypto.randomUUID()
+      const serverConfig = {
+        id: serverId,
+        serverName: serverName,
+        serverUrl: serverAddress,
+        token: encryptedToken,
+        enabled: true,
+        createdAt: new Date().toISOString()
+      }
+      existingServers.push(serverConfig)
+      localStorage.setItem('mcpServers', JSON.stringify(existingServers))
+
+      // Connect to the new server via socket (use original token, not encrypted)
+      try {
+        await connectToServer({
+          id: serverId,
+          name: serverName,
+          url: serverAddress,
+          token: accessToken
+        })
+        console.log('✅ Socket connection initiated for server:', serverName)
+      } catch (error) {
+        console.error('❌ Failed to connect to server:', error)
+      }
+    }
+
+    // Navigate to next step or dashboard
+    router.push('/dashboard')
+  }
+
+  const handleCancel = () => {
+    router.back()
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-[#F5F5F5]">
+      <Header showLockButton={true}>
+        <div className="flex items-center gap-2">
+          <button className="p-[4px] hover:bg-[rgba(0, 0, 0, 0.05)] rounded-[26px] transition-colors">
+            <Settings className="w-[16px] h-[16px] text-gray-600" />
+          </button>
+        </div>
+      </Header>
+
+      <div className="max-w-md mt-[100px] w-full flex-1 flex flex-col items-center justify-between">
+        <div className="w-full flex-1">
+          {/* Title */}
+          <div className="p-[16px]">
+            <h1 className="text-[30px] font-bold text-[#0A0A0A] mb-[4px]">
+              Add Server
+            </h1>
+            <p className="text-[14px] text-[#8E8E93] leading-[20px]">
+              add a server to start using MCP tools.
+            </p>
+          </div>
+
+          {/* Form */}
+          <div className="space-y-[14px] p-[16px]">
+            {/* Server Name */}
+            <div>
+              <label className="block text-[14px] font-bold text-[#0A0A0A] mb-[4px]">
+                Your Peta Server Name
+              </label>
+              <input
+                type="text"
+                value={serverName}
+                onChange={(e) => setServerName(e.target.value)}
+                placeholder="My Peta Server"
+                className="w-full h-[48px] px-4 border border-[#D1D1D6] rounded-[12px] bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-[14px] text-[#0A0A0A] placeholder:text-[#C7C7CC]"
+              />
+            </div>
+
+            {/* Server Address */}
+            <div>
+              <label className="block text-[14px] font-bold text-[#0A0A0A] mb-[4px]">
+                Your Peta Server Address
+              </label>
+              <input
+                type="text"
+                value={serverAddress}
+                onChange={(e) => setServerAddress(e.target.value)}
+                placeholder="Peta Server Address"
+                className="w-full h-[48px] px-4 border border-[#D1D1D6] rounded-[12px] bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-[14px] text-[#0A0A0A] placeholder:text-[#C7C7CC]"
+              />
+            </div>
+
+            {/* Access Token */}
+            <div>
+              <label className="block text-[14px] font-bold text-[#0A0A0A] mb-[4px]">
+                Your Peta Server Access Token
+              </label>
+              <input
+                type="password"
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+                placeholder="access token"
+                className="w-full h-[48px] px-4 border border-[#D1D1D6] rounded-[12px] bg-white focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-[14px] text-[#0A0A0A] placeholder:text-[#C7C7CC]"
+              />
+            </div>
+
+            {/* Test Button (Inline) */}
+            <button
+              onClick={handleTest}
+              disabled={isValidating}
+              className="w-full h-[48px] border border-[#D1D1D6] rounded-[12px] bg-white hover:bg-gray-50 text-[#0A0A0A] text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isValidating ? 'Testing...' : 'Test'}
+            </button>
+
+            {/* Validation Message */}
+            {validationMessage && (
+              <div
+                className={`text-[13px] text-center ${
+                  validationMessage.includes('✅')
+                    ? 'text-green-600'
+                    : validationMessage.includes('❌')
+                    ? 'text-red-500'
+                    : 'text-blue-500'
+                }`}
+              >
+                {validationMessage}
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Bottom Buttons */}
+        <div className="flex p-[16px] w-full gap-4">
+          {mode === 'edit' && (
+            <button
+              onClick={handleCancel}
+              className="flex-1 h-[48px] border border-[#D1D1D6] rounded-[12px] bg-white hover:bg-gray-50 text-[#0A0A0A] text-[14px] font-medium transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={handleCompleteSetup}
+            disabled={!isFormValid}
+            className={`h-[48px] rounded-[12px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[14px] font-medium transition-colors ${
+              mode === 'edit' ? 'flex-1' : 'w-full'
+            } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#26251E]`}
+          >
+            Complete Setup
+          </button>
+        </div>
+      </div>
+
+      {/* Password Dialog */}
+      <PasswordDialog
+        isOpen={showPasswordDialog}
+        onClose={() => {
+          setShowPasswordDialog(false)
+          setMasterPassword('')
+        }}
+        onSubmit={(password) => {
+          setMasterPassword(password)
+          setShowPasswordDialog(false)
+          // Continue with the setup process
+          setTimeout(() => {
+            handleCompleteSetup()
+          }, 100)
+        }}
+        title="Enter Master Password"
+        description="Enter your master password to encrypt the server token for secure storage."
+        buttonText="Encrypt"
+      />
+    </div>
+  )
+}
+
+export default function MCPSetupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <MCPSetupContent />
+    </Suspense>
+  )
+}

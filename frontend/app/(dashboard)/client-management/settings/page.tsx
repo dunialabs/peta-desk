@@ -1,0 +1,395 @@
+"use client"
+
+import {
+  ArrowLeft,
+  User,
+  Shield,
+  LogIn,
+  LogOut,
+  Trash2,
+  Upload,
+  Key,
+  Settings2,
+  Cloud,
+} from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+
+import { AuthLoginDialog } from "@/components/auth-login-dialog"
+import { AuthRegistrationDialog } from "@/components/auth-registration-dialog"
+import { BackupDialog } from "@/components/backup-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+
+
+export default function PersonalSettingsPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [oldMasterPassword, setOldMasterPassword] = useState("")
+  const [newMasterPassword, setNewMasterPassword] = useState("")
+  const [showRegistrationDialog, setShowRegistrationDialog] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [showClearDataDialog, setShowClearDataDialog] = useState(false)
+  const [showMasterPasswordDialog, setShowMasterPasswordDialog] = useState(false)
+  const [showLoginDialog, setShowLoginDialog] = useState(false)
+  const [confirmationText, setConfirmationText] = useState("")
+  const _router = useRouter()
+
+  useEffect(() => {
+    // Check authentication status
+    const authStatus = localStorage.getItem("clientManagementAuth")
+    setIsLoggedIn(authStatus === "true")
+    setIsLoading(false)
+  }, [])
+
+  const handleMasterPasswordUpdate = async () => {
+    if (!oldMasterPassword || !newMasterPassword) {
+      alert("Both old and new passwords are required")
+      return
+    }
+    
+    try {
+      if (window.electron?.password) {
+        // Use secure password update
+        const result = await window.electron.password.update(oldMasterPassword, newMasterPassword)
+        if (result.success) {
+          // Clear the form and close dialog
+          setOldMasterPassword("")
+          setNewMasterPassword("")
+          setShowMasterPasswordDialog(false)
+          
+          alert("Master password updated successfully")
+        } else {
+          alert(result.error || "Failed to update password")
+        }
+      } else {
+        alert("Password manager not available. Please restart the application.")
+      }
+    } catch (error) {
+      console.error("Failed to update password:", error)
+      alert("Failed to update password. Please try again.")
+    }
+  }
+
+  const handleLoginSuccess = (_user: { email: string; name?: string }) => {
+    // Set logged in state
+    localStorage.setItem("clientManagementAuth", "true")
+    setIsLoggedIn(true)
+    setShowLoginDialog(false)
+  }
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    
+    // Simulate logout process
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Clear login state but keep master password
+    localStorage.setItem("clientManagementAuth", "guest")
+    setIsLoggedIn(false)
+    setIsLoggingOut(false)
+  }
+
+  const handleClearLocalData = () => {
+    if (confirmationText !== "DELETE MY DATA") {
+      alert('Please type "DELETE MY DATA" to confirm')
+      return
+    }
+    
+    // Clear all local storage data except master password
+    const masterAuth = localStorage.getItem("clientManagementMasterAuth")
+    const masterPassword = localStorage.getItem("clientManagementMasterPassword")
+    
+    localStorage.clear()
+    
+    // Restore master password if it existed
+    if (masterAuth && masterPassword) {
+      localStorage.setItem("clientManagementMasterAuth", masterAuth)
+      localStorage.setItem("clientManagementMasterPassword", masterPassword)
+    }
+    
+    // Set to guest mode
+    localStorage.setItem("clientManagementAuth", "guest")
+    setIsLoggedIn(false)
+    setShowClearDataDialog(false)
+    setConfirmationText("")
+    
+    alert("Local data cleared successfully")
+  }
+
+  const handleLoginRequired = () => {
+    console.log("Login required for cloud backup")
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+          Loading...
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-6">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <Link href="/client-management">
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-lg font-medium text-slate-900">Personal Settings</h1>
+          <p className="text-xs text-slate-500">Manage your account and preferences</p>
+        </div>
+      </div>
+
+      {/* Settings Cards */}
+      <div className="max-w-md space-y-3">
+        {/* Account Section */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="w-4 h-4" />
+              Account
+            </CardTitle>
+            <CardDescription className="text-xs">
+              {isLoggedIn ? "Logged in as user@example.com" : "Not logged in"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {!isLoggedIn ? (
+              <Button size="sm" className="w-full text-xs" onClick={() => setShowLoginDialog(true)}>
+                <LogIn className="w-3 h-3 mr-2" />
+                Login to Account
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleLogout} 
+                disabled={isLoggingOut}
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+              >
+                {isLoggingOut ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-slate-600 border-t-transparent rounded-full animate-spin mr-2" />
+                    Logging out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-3 h-3 mr-2" />
+                    Logout
+                  </>
+                )}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Security Section */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Shield className="w-4 h-4" />
+              Security
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Master password protection
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <Dialog open={showMasterPasswordDialog} onOpenChange={setShowMasterPasswordDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full text-xs">
+                  <Key className="w-3 h-3 mr-2" />
+                  Change Master Password
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-base">Change Master Password</DialogTitle>
+                  <DialogDescription className="text-xs">
+                    Enter your current password and choose a new one
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="old-password" className="text-xs">Current Master Password</Label>
+                    <Input
+                      id="old-password"
+                      type="password"
+                      placeholder="Enter current password"
+                      value={oldMasterPassword}
+                      onChange={(e) => setOldMasterPassword(e.target.value)}
+                      className="text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="new-password" className="text-xs">New Master Password</Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      placeholder="Enter new password"
+                      value={newMasterPassword}
+                      onChange={(e) => setNewMasterPassword(e.target.value)}
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button 
+                    onClick={handleMasterPasswordUpdate}
+                    disabled={!oldMasterPassword || !newMasterPassword}
+                    size="sm"
+                    className="text-xs"
+                  >
+                    <Key className="w-3 h-3 mr-2" />
+                    Update Password
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+
+        {/* Cloud Features */}
+        {isLoggedIn && (
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Cloud className="w-4 h-4" />
+                Cloud Features
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Backup and restore configurations
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <BackupDialog isLoggedIn={isLoggedIn} onLoginRequired={handleLoginRequired}>
+                <Button variant="outline" size="sm" className="w-full text-xs">
+                  <Upload className="w-3 h-3 mr-2" />
+                  Backup & Restore
+                </Button>
+              </BackupDialog>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Data Management */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Settings2 className="w-4 h-4" />
+              Data Management
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Local data and preferences
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <AlertDialog open={showClearDataDialog} onOpenChange={setShowClearDataDialog}>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="w-full text-xs"
+                onClick={() => setShowClearDataDialog(true)}
+              >
+                <Trash2 className="w-3 h-3 mr-2" />
+                Clear Local Data
+              </Button>
+              <AlertDialogContent className="sm:max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-base">Clear Local Data</AlertDialogTitle>
+                  <AlertDialogDescription className="text-xs">
+                    This will clear all locally stored configurations and settings. Your master password will be preserved.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmation" className="text-xs font-medium">
+                    Type &quot;DELETE MY DATA&quot; to confirm:
+                  </Label>
+                  <Input
+                    id="confirmation"
+                    placeholder="DELETE MY DATA"
+                    value={confirmationText}
+                    onChange={(e) => setConfirmationText(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel 
+                    className="text-xs" 
+                    onClick={() => {
+                      setConfirmationText("")
+                      setShowClearDataDialog(false)
+                    }}
+                  >
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleClearLocalData} 
+                    disabled={confirmationText !== "DELETE MY DATA"}
+                    className="bg-red-600 hover:bg-red-700 text-xs"
+                  >
+                    Clear Data
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <AuthLoginDialog
+        open={showLoginDialog}
+        onOpenChange={setShowLoginDialog}
+        onShowRegistrationDialog={() => {
+          setShowLoginDialog(false)
+          setShowRegistrationDialog(true)
+        }}
+        onLoginSuccess={handleLoginSuccess}
+      />
+      
+      <AuthRegistrationDialog
+        open={showRegistrationDialog}
+        onOpenChange={setShowRegistrationDialog}
+        onShowLoginDialog={() => {
+          setShowRegistrationDialog(false)
+          setShowLoginDialog(true)
+        }}
+        onRegistrationSuccess={(user) => {
+          console.log('Registration successful:', user)
+          setIsLoggedIn(true)
+        }}
+      />
+    </div>
+  )
+}
