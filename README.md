@@ -2,13 +2,13 @@
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-green.svg)
-![License](https://img.shields.io/badge/license-ELv2-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Runtime](https://img.shields.io/badge/runtime-Electron%20%2B%20Next.js-informational.svg)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 
-Peta Desk is a **cross‑platform** desktop application (typically implemented with Electron) that provides a user‑facing control surface on top of **Peta Core**. It connects to the gateway’s Socket.IO and MCP endpoints.
+Peta Desk is a **cross‑platform** desktop application (typically implemented with Electron) that provides a user‑facing control surface on top of Peta Core. It is the human-in-the-loop approval console and desktop companion for Peta Core’s MCP vault and gateway (“1Password for AI agents”). It connects to the gateway’s Socket.IO and MCP endpoints.
 
-It can run as the desktop companion to **Peta Core**, acting as a secure client and approval surface for AI agents.
+It runs as the desktop companion to Peta Core, acting as a secure client and approval surface for AI agents: users can see what agents are allowed to do, configure which MCP servers they can touch, and approve or deny risky operations before they run.
 
 The application ships with an embedded Node/Electron runtime and a statically exported Next.js frontend, so packaged builds are fully self‑contained.
 
@@ -48,7 +48,7 @@ The application ships with an embedded Node/Electron runtime and a statically ex
 
 ### What is Peta Desk?
 
-Peta Desk is a **cross‑platform** desktop client (Windows, macOS, and Linux) that exposes a user‑friendly control surface for **Peta Core**. It connects to the gateway’s Socket.IO and MCP endpoints and can operate as a desktop companion to Peta Core, acting as a secure client and approval surface for AI agents.
+Peta Desk is a **cross‑platform** desktop client (Windows, macOS, and Linux) that exposes a user‑friendly control surface for **Peta Core**. It is the human-in-the-loop desk for Peta Core’s MCP vault and gateway: it connects to the gateway’s Socket.IO and MCP endpoints and operates as a desktop companion to Peta Core, acting as a secure client and approval surface for AI agents.
 
 ### Key Use Cases
 
@@ -58,14 +58,14 @@ Peta Desk is a **cross‑platform** desktop client (Windows, macOS, and Linux) t
   - Apply updates in real time when administrators change permissions.
 
 - **Server configuration**
-  - Allow users to configure servers that require their own credentials (for example, personal API keys).
+  - Allow users to configure servers that require their own credentials (for example, personal API keys), without hand-editing JSON config files.
   - Unconfigure or revoke previously stored user configuration.
   - Automatically trigger server startup once configuration is complete.
 
 - **Approval workflow**
-  - Receive approval requests when an agent triggers a tool that requires human review.
+  - Receive approval requests when an agent triggers a tool that requires human review, before Peta Core forwards it to downstream MCP servers.
   - Show the parameters the agent intends to send.
-  - Let the user approve, reject, or modify the request.
+  - Let the user approve, reject, or modify the request before Peta Core forwards it to downstream MCP servers.
 
 ### Interaction Model
 
@@ -165,6 +165,7 @@ peta-desk/
 
 ## Architecture Highlights
 
+* **Human-in-the-loop approval console** for Peta Core’s MCP vault and gateway, so humans stay in control of risky agent actions.
 * **Cross‑platform desktop client** targeting Windows, macOS, and Linux from a single codebase.
 * **Socket.IO-based communication** with remote Peta Core servers for real-time updates.
 * **Security-first design** with biometric authentication, master password encryption, and token encryption (AES-GCM).
@@ -429,21 +430,14 @@ For details, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-This project is licensed under the [Elastic License 2.0 (ELv2)](./LICENSE).
+This project is licensed under the [MIT License](./LICENSE).
 
-**What We Encourage**
-Subject to the terms of the Elastic License 2.0, you are encouraged to:
+You are encouraged to:
 
 * Freely review, test, and verify the safety and reliability of this product.
 * Modify and adapt the code for your own use cases.
 * Apply and integrate this project in a wide variety of scenarios.
 * Contribute improvements, bug fixes, and other enhancements that help evolve the codebase.
-
-**Key Restrictions**:
-
-* You may not provide the software to third parties as a hosted or managed service.
-* You may not remove or circumvent license key functionality.
-* You may not remove or obscure licensing notices.
 
 For detailed terms, see the [LICENSE](./LICENSE) file.
 

@@ -260,7 +260,7 @@ mainWindow.webContents.openDevTools()
 
 ## License
 
-By contributing code, you agree that your contributions will be licensed under the [Elastic License 2.0](./LICENSE).
+By contributing code, you agree that your contributions will be licensed under the [MIT License](./LICENSE).
 
 ---
 

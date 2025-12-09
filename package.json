@@ -15,7 +15,7 @@
     "install:all": "node install-deps.js"
   },
   "author": "Dunia Labs, Inc.",
-  "license": "Elastic-2.0",
+  "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2",
     "electron": "^38.7.0",
