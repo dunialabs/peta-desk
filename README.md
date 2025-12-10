@@ -138,8 +138,8 @@ peta-desk/
 * **Security modules**
 
   * **`biometric-auth.js`**: Platform-specific biometric authentication.
-  * **`password-manager.js`**: Master password encryption with PBKDF2.
-
+  * **`password-manager.js`**: Implements the local credential vault. Derives an encryption key from the master password using PBKDF2 and encrypts tokens/credentials with AES-GCM so plaintext values never hit disk and never leave the device.
+ 
 * **Preload script (`electron/preload.js`)**
 
   * Context-isolated bridge between renderer and main process.
@@ -169,6 +169,7 @@ peta-desk/
 * **Cross‑platform desktop client** targeting Windows, macOS, and Linux from a single codebase.
 * **Socket.IO-based communication** with remote Peta Core servers for real-time updates.
 * **Security-first design** with biometric authentication, master password encryption, and token encryption (AES-GCM).
+* **Local credential vault with a master key** – access tokens and per-user credentials are encrypted with a key derived from a user-chosen master password (PBKDF2 + AES-GCM); plaintext secrets never hit disk and never leave the device.
 * **Multi-server support** – manage multiple Peta Core instances simultaneously with per-server state tracking.
 * **External app integration** – automatically configures MCP settings for Claude Desktop, Cursor, VSCode, and Windsurf.
 * **Local backup system** – create, restore, and manage configuration backups with metadata.
@@ -176,6 +177,25 @@ peta-desk/
 * **Modern tech stack**: Next.js 15, React 19, TypeScript, TailwindCSS, shadcn/ui, Zustand.
 * **Context-isolated IPC** between renderer and main process for security.
 * **Auto-lock timer** with configurable intervals (5 min, 15 min, 30 min, 1 hour, never).
+* **Team-ready & customizable** – because Peta Desk is open source, teams can fork it, add their own logo/branding or SSO flows, and still rely on the same master-key-based encryption model.
+
+---
+
+## Security & Encryption Model
+
+Peta Desk is designed so that sensitive values are either:
+
+- stored in Peta Core’s server-side vault, or
+- stored locally on the user’s machine, encrypted with a master key the user controls.
+
+### Local master key
+
+- During onboarding, the user chooses a master password; a key is derived from it using PBKDF2.
+- Access tokens and per-user credentials are encrypted with AES-GCM before they are written to disk.
+- The master key and raw secrets never leave the device and are never sent to Peta Core.
+- On supported platforms, biometric APIs (Touch ID / Windows Hello) can unlock the local vault without retyping the password.
+
+This model lets teams distribute Peta Desk internally—or fork and rebrand it with their own logo and integrations—without changing the underlying security properties.
 
 ---
 
