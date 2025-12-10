@@ -190,8 +190,8 @@ Peta Desk is designed so that sensitive values are either:
 
 ### Local master key
 
-- During onboarding, the user chooses a master password; a key is derived from it using PBKDF2.
-- Access tokens and per-user credentials are encrypted with AES-GCM before they are written to disk.
+- During onboarding, the user chooses a master password; a key is derived from it using PBKDF2 (HMAC-SHA-256).
+- Access tokens and per-user credentials are encrypted with AES-256-GCM before they are written to disk.
 - The master key and raw secrets never leave the device and are never sent to Peta Core.
 - On supported platforms, biometric APIs (Touch ID / Windows Hello) can unlock the local vault without retyping the password.
 
