@@ -25,82 +25,8 @@ try {
   console.warn('socket.io-client not available in preload, will expose via different method:', error.message)
 }
 
-// Early fix for Next.js RSC flight requests under file:// protocol
-// This runs before any page scripts, so it can catch initial fetches
-;(() => {
-  try {
-    if (typeof window === 'undefined') return
-    // Preload runs in isolated world; location is available
-    if (location.protocol !== 'file:') return
-
-    const rewriteToRelative = (url) => {
-      try {
-        if (typeof url !== 'string') return null
-
-        // Handle absolute paths - convert to relative
-        if (url.startsWith('/')) {
-          // Special handling for .txt files (Next.js RSC flight data)
-          if (url.endsWith('.txt') || url.includes('.txt?')) {
-            return '.' + url
-          }
-          return '.' + url
-        }
-
-        // Handle file:/// URLs - these need to be relative to the current document
-        if (url.startsWith('file:///')) {
-          const filePath = url.replace('file:///', '')
-          // If it's just a filename without path, make it relative
-          if (!filePath.includes('/')) {
-            return './' + filePath
-          }
-          return new URL('./' + filePath, location.href).toString()
-        }
-      } catch (e) {
-        console.warn('URL rewrite failed:', e)
-      }
-      return null
-    }
-
-    // Patch fetch
-    if (typeof window.fetch === 'function') {
-      const originalFetch = window.fetch.bind(window)
-      window.fetch = (input, init) => {
-        try {
-          let urlStr
-          if (typeof input === 'string') urlStr = input
-          else if (input instanceof URL) urlStr = input.toString()
-          else if (input && typeof input === 'object' && 'url' in input)
-            urlStr = input.url
-          const rewritten = rewriteToRelative(urlStr)
-          if (rewritten) {
-            if (typeof input === 'string') return originalFetch(rewritten, init)
-            if (input instanceof URL)
-              return originalFetch(new URL(rewritten, location.href), init)
-            return originalFetch(new Request(rewritten, input), init)
-          }
-        } catch {}
-        return originalFetch(input, init)
-      }
-    }
-
-    // Patch XHR
-    const originalOpen =
-      XMLHttpRequest &&
-      XMLHttpRequest.prototype &&
-      XMLHttpRequest.prototype.open
-    if (originalOpen) {
-      XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-        try {
-          if (typeof url === 'string') {
-            const rewritten = rewriteToRelative(url)
-            if (rewritten) url = rewritten
-          }
-        } catch {}
-        return originalOpen.call(this, method, url, ...rest)
-      }
-    }
-  } catch {}
-})()
+// Note: file:// protocol patches removed
+// We now use HTTP server for all platforms, which eliminates file:// protocol issues
 
 // Backward-compatible API
 contextBridge.exposeInMainWorld('electronAPI', {

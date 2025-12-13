@@ -8,7 +8,6 @@
  */
 import type { Metadata } from 'next'
 import './globals.css'
-import { FileProtocolFix } from '@/components/common/file-protocol-fix'
 import { LockProvider } from '@/contexts/lock-context'
 import LockWrapper from '@/components/common/lock-wrapper'
 import { Toaster } from '@/components/ui/sonner'
@@ -35,8 +34,6 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <div className="min-h-screen font-sans">
-            {/* Fix absolute requests when running under file:// after export */}
-            <FileProtocolFix />
             <LockProvider>
               <UnlockProvider>
                 <SocketProvider>

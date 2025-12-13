@@ -322,6 +322,147 @@ function getResourcePath(relativePath) {
   }
 }
 
+// HTTP static file server for production builds
+let staticServer = null
+let staticServerPort = null
+
+/**
+ * Start HTTP server to serve static files from frontend/out
+ * This avoids file:// protocol issues on Windows and provides consistent behavior across platforms
+ */
+async function startStaticFileServer() {
+  // Return existing server port if already started
+  if (staticServer && staticServerPort) {
+    return staticServerPort
+  }
+
+  const http = require('http')
+  const getPort = require('get-port')
+  const staticDir = getResourcePath('frontend/out')
+
+  if (!fs.existsSync(staticDir)) {
+    throw new Error(`Static directory not found: ${staticDir}`)
+  }
+
+  return new Promise((resolve, reject) => {
+    // Try to get an available port from our preferred range
+    getPort({ port: [34327, 34328, 34329, 34330] })
+      .then((port) => {
+        staticServerPort = port
+
+        staticServer = http.createServer((req, res) => {
+          try {
+            // Parse URL and remove query string
+            const urlPath = new URL(req.url, 'http://localhost').pathname
+
+            // Build file path
+            let filePath = path.join(staticDir, urlPath === '/' ? 'index.html' : urlPath)
+
+            // Security check: ensure file is within staticDir
+            const resolvedPath = path.resolve(filePath)
+            const resolvedDir = path.resolve(staticDir)
+            if (!resolvedPath.startsWith(resolvedDir)) {
+              res.writeHead(403, { 'Content-Type': 'text/plain' })
+              res.end('Forbidden')
+              return
+            }
+
+            // Handle Next.js App Router routes (files without extension)
+            if (!path.extname(filePath)) {
+              // Try adding .html extension for Next.js routes
+              const htmlPath = filePath + '.html'
+              if (fs.existsSync(htmlPath)) {
+                filePath = htmlPath
+              } else {
+                // SPA fallback: all routes return index.html
+                filePath = path.join(staticDir, 'index.html')
+              }
+            }
+
+            // Read and serve file
+            fs.readFile(filePath, (err, data) => {
+              if (err) {
+                if (err.code === 'ENOENT') {
+                  // File not found, return index.html for SPA routing
+                  const indexPath = path.join(staticDir, 'index.html')
+                  fs.readFile(indexPath, (err2, indexData) => {
+                    if (err2) {
+                      res.writeHead(404, { 'Content-Type': 'text/plain' })
+                      res.end('Not Found')
+                    } else {
+                      res.writeHead(200, { 'Content-Type': 'text/html' })
+                      res.end(indexData)
+                    }
+                  })
+                } else {
+                  res.writeHead(500, { 'Content-Type': 'text/plain' })
+                  res.end('Internal Server Error')
+                }
+                return
+              }
+
+              // Determine Content-Type based on file extension
+              const ext = path.extname(filePath).toLowerCase()
+              const contentTypes = {
+                '.html': 'text/html; charset=utf-8',
+                '.js': 'application/javascript; charset=utf-8',
+                '.css': 'text/css; charset=utf-8',
+                '.json': 'application/json; charset=utf-8',
+                '.png': 'image/png',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.svg': 'image/svg+xml',
+                '.txt': 'text/plain; charset=utf-8',
+                '.ico': 'image/x-icon',
+                '.woff': 'font/woff',
+                '.woff2': 'font/woff2',
+                '.ttf': 'font/ttf',
+                '.eot': 'application/vnd.ms-fontobject'
+              }
+
+              const contentType = contentTypes[ext] || 'application/octet-stream'
+
+              res.writeHead(200, {
+                'Content-Type': contentType,
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+              })
+              res.end(data)
+            })
+          } catch (error) {
+            log(`[Static Server] Error processing request: ${error.message}`)
+            res.writeHead(500, { 'Content-Type': 'text/plain' })
+            res.end('Internal Server Error')
+          }
+        })
+
+        staticServer.listen(port, '127.0.0.1', () => {
+          log(`[Static Server] Started on http://127.0.0.1:${port}`)
+          log(`[Static Server] Serving files from: ${staticDir}`)
+          resolve(port)
+        })
+
+        staticServer.on('error', (err) => {
+          log(`[Static Server] Error: ${err.message}`)
+          reject(err)
+        })
+      })
+      .catch(reject)
+  })
+}
+
+/**
+ * Stop the static file server
+ */
+function stopStaticFileServer() {
+  if (staticServer) {
+    staticServer.close(() => {
+      log('[Static Server] Stopped')
+    })
+    staticServer = null
+    staticServerPort = null
+  }
+}
+
 // Wait for the dev server and return the active port
 async function waitForDevServer(maxRetries = 30, retryDelay = 1000) {
   const http = require('http')
@@ -509,13 +650,11 @@ async function createWindow() {
 
       log(`Loading from: ${indexPath}`)
 
-      // For Windows, ensure proper file:// URL format
-      if (process.platform === 'win32') {
-        const fileUrl = `file:///${indexPath.replace(/\\/g, '/')}`
-        await mainWindow.loadURL(fileUrl)
-      } else {
-        await mainWindow.loadFile(indexPath)
-      }
+      // Use HTTP server for all platforms (avoids file:// protocol issues)
+      const port = await startStaticFileServer()
+      const url = `http://127.0.0.1:${port}`
+      log(`Loading from HTTP server: ${url}`)
+      await mainWindow.loadURL(url)
 
       markPerformance('Content loaded')
     } else {
@@ -551,88 +690,8 @@ async function createWindow() {
     // ===========================================
   })
 
-  // Handle file:// refresh/direct navigation to subpaths (like /dashboard) causing 404
-  // Use a flag to avoid infinite loops
-  let isHandlingNavigation = false
-
-  const tryHandleFileRouteNavigation = async (url) => {
-    try {
-      // avoid recursive handling
-      if (isHandlingNavigation) return false
-      if (!frontendIndexPath || !frontendBaseDir) return false
-
-      const u = new URL(url)
-      if (u.protocol !== 'file:') return false
-
-      const pathname = decodeURIComponent(u.pathname)
-
-      // skip if the path is outside frontend/out
-      if (!pathname.startsWith(frontendBaseDir)) return false
-
-      const rel = path.relative(frontendBaseDir, pathname)
-
-      // skip existing files (.html, .js, .css, .txt, etc.)
-      const fullPath = path.join(frontendBaseDir, rel)
-      if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
-        return false
-      }
-
-      // No extension + missing file implies a routed path like /dashboard
-      if (rel && !path.extname(rel)) {
-        const routePath = '/' + rel.replace(/\\/g, '/')
-        log(`Intercepting route navigation to ${routePath}, loading index.html`)
-
-        // set flag to avoid loop
-        isHandlingNavigation = true
-
-        // load index.html
-        await mainWindow.loadFile(frontendIndexPath)
-
-        // after load, set the router path
-        mainWindow.webContents.once('did-finish-load', () => {
-          mainWindow.webContents
-            .executeJavaScript(
-              `
-            if (window.location.pathname !== ${JSON.stringify(routePath)}) {
-              history.replaceState({}, '', ${JSON.stringify(routePath)});
-              // trigger the Next.js route update
-              if (window.next && window.next.router) {
-                window.next.router.replace(${JSON.stringify(routePath)});
-              }
-            }
-          `
-            )
-            .then(() => {
-              isHandlingNavigation = false
-            })
-            .catch((err) => {
-              log(`Failed to set route: ${err.message}`)
-              isHandlingNavigation = false
-            })
-        })
-
-        return true
-      }
-    } catch (e) {
-      log(`Route navigation interception failed: ${e.message}`)
-      isHandlingNavigation = false
-    }
-    return false
-  }
-
-  // Handle only did-fail-load events; most reliable for refresh
-  mainWindow.webContents.on(
-    'did-fail-load',
-    async (event, errorCode, errorDescription, validatedURL) => {
-      if (errorCode === -6) {
-        // ERR_FILE_NOT_FOUND
-        const handled = await tryHandleFileRouteNavigation(validatedURL)
-        if (handled) {
-          log(`Handled failed load for ${validatedURL}`)
-        }
-      }
-    }
-  )
+  // Note: file:// protocol route handling removed
+  // HTTP server handles all routing correctly, no need for special handling
 
   mainWindow.on('closed', () => {
     mainWindow = null
@@ -2222,6 +2281,9 @@ app.on('activate', () => {
 
 // Clean up on app quit
 app.on('before-quit', async () => {
+  // Stop static file server
+  stopStaticFileServer()
+
   // Unregister all shortcuts
   globalShortcut.unregisterAll()
 
