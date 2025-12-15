@@ -2136,26 +2136,6 @@ ipcMain.handle('show-settings-menu', async (event, x, y, autoLockTimer) => {
       //   }
       // },
       { type: 'separator' },
-      // { type: 'separator' },
-      {
-        label: 'Hide Finder',
-        accelerator: 'CmdOrCtrl+H',
-        click: () => {
-          if (mainWindow) {
-            mainWindow.hide()
-          }
-        }
-      },
-      {
-        label: 'Hide Others',
-        accelerator: 'CmdOrCtrl+Alt+H',
-        role: 'hideOthers'
-      },
-      {
-        label: 'Show All',
-        role: 'unhide'
-      },
-      { type: 'separator' },
       {
         label: 'Quit',
         accelerator: 'CmdOrCtrl+Q',
