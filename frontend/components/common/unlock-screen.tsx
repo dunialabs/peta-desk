@@ -220,7 +220,7 @@ export default function UnlockScreen() {
       {showWarningModal && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[100]">
           <div className="bg-white dark:bg-gray-900 rounded-[10px] p-[16px] max-w-[320px] w-full mx-8 shadow-xl">
-            <h2 className="text-[13px] font-bold text-center text-[#26251e] mb-[10px]">
+            <h2 className="text-[13px] font-bold text-center text-[#26251e] dark:text-gray-100 mb-[10px]">
               Forgot Master Password?
             </h2>
             <p className="text-[11px] text-center text-gray-900 dark:text-gray-100 leading-[14px] mb-[16px]">
@@ -229,13 +229,13 @@ export default function UnlockScreen() {
             <div className="flex gap-[8px]">
               <button
                 onClick={handleWarningCancel}
-                className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)]"
+                className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] dark:text-gray-100 text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] dark:hover:bg-gray-700 shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleWarningConfirm}
-                className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)]"
+                className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)]"
               >
                 Reset Peta Desk
               </button>
@@ -269,7 +269,7 @@ export default function UnlockScreen() {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-[#FF9500] leading-relaxed">
+                  <p className="text-sm text-[#FF9500] dark:text-orange-400 leading-relaxed">
                     <span className="font-bold">Warning: </span>
                     This will permanently delete all your data. This action cannot be undone.
                   </p>
@@ -279,14 +279,14 @@ export default function UnlockScreen() {
 
             {/* Confirmation Input */}
             <div className="mb-8">
-              <div className="text-[14px] font-[700] text-[#040B0F] mb-[4px]">
+              <div className="text-[14px] font-[700] text-[#040B0F] dark:text-gray-100 mb-[4px]">
                 Type &quot;{expectedText}&quot; to confirm:
               </div>
               <div className="relative">
                 {/* Always visible placeholder text background layer */}
                 <div className="absolute inset-0 flex items-center px-4 pointer-events-none">
                   <span
-                    className={`text-[14px] text-[#94A3B8] ${
+                    className={`text-[14px] text-[#94A3B8] dark:text-gray-400 ${
                       confirmText ? 'opacity-40' : 'opacity-100'
                     }`}
                   >
@@ -298,7 +298,7 @@ export default function UnlockScreen() {
                   type="text"
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}
-                  className="w-full h-[48px] text-[14px] px-4 bg-white dark:bg-gray-900 border border-[rgba(4, 11, 15, 0.10)] rounded-[8px] focus:border-transparent focus:ring-2 focus:ring-black focus:outline-none relative z-10"
+                  className="w-full h-[48px] text-[14px] px-4 bg-white dark:bg-gray-900 border border-[rgba(4, 11, 15, 0.10)] dark:border-gray-700 rounded-[8px] focus:border-transparent focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none relative z-10 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
@@ -308,7 +308,7 @@ export default function UnlockScreen() {
               <Button
                 onClick={handleResetConfirm}
                 disabled={!isResetValid}
-                className="w-full h-[40px] text-[14px] bg-[#26251e] hover:bg-gray-800 text-white rounded-[8px] font-[500] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-[40px] text-[14px] bg-[#26251e] dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white rounded-[8px] font-[500] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Reset and Clear All Data
               </Button>
@@ -316,7 +316,7 @@ export default function UnlockScreen() {
               <Button
                 onClick={handleResetCancel}
                 variant="outline"
-                className="w-full h-[40px] text-[14px] border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 text-[#26251e] rounded-[8px] font-[500] transition-colors"
+                className="w-full h-[40px] text-[14px] border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 text-[#26251e] dark:text-gray-100 rounded-[8px] font-[500] transition-colors"
               >
                 Cancel
               </Button>
@@ -344,7 +344,7 @@ export default function UnlockScreen() {
 
         {/* Password Input */}
         <div className="mb-[10px]">
-          <label className="text-[14px] font-[700] text-[#040B0F] mb-[4px] block">
+          <label className="text-[14px] font-[700] text-[#040B0F] dark:text-gray-100 mb-[4px] block">
             Master Password
           </label>
           <InputWithClear
@@ -367,7 +367,7 @@ export default function UnlockScreen() {
           <div className="mt-[2px]">
             <button
               onClick={handleForgotPassword}
-              className="text-[13px] text-[#64748B] hover:underline text-left"
+              className="text-[13px] text-[#64748B] dark:text-gray-400 hover:underline text-left"
             >
               Forgot Master Password?
             </button>
@@ -379,14 +379,14 @@ export default function UnlockScreen() {
           <div className="mb-6">
             <div className="flex items-center mb-4">
               <div className="flex-1 h-px bg-gray-300"></div>
-              <span className="px-3 text-[13px] text-[#64748B]">or</span>
+              <span className="px-3 text-[13px] text-[#64748B] dark:text-gray-400">or</span>
               <div className="flex-1 h-px bg-gray-300"></div>
             </div>
 
             <button
               onClick={handleBiometricUnlock}
               disabled={isAuthenticating}
-              className="w-full h-[40px] bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 rounded-[8px] text-[14px] font-[500] text-[#26251e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="w-full h-[40px] bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-[8px] text-[14px] font-[500] text-[#26251e] dark:text-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               <Fingerprint className="w-5 h-5" />
               <span>
@@ -402,14 +402,14 @@ export default function UnlockScreen() {
         <button
           onClick={handleUnlock}
           disabled={!password.trim()}
-          className="w-full h-[40px] text-[14px] bg-[#26251e] hover:bg-gray-800 text-white rounded-[8px] font-[500] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-[40px] text-[14px] bg-[#26251e] dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white rounded-[8px] font-[500] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Unlock
         </button>
 
         {/* Additional Info */}
         <div className="text-center mt-8">
-          <p className="text-[#94A3B8] text-[12px]">
+          <p className="text-[#94A3B8] dark:text-gray-400 text-[12px]">
             Your data is encrypted and secure
           </p>
         </div>

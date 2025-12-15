@@ -7,6 +7,7 @@
  * App layout entry
  */
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import './globals.css'
 import { LockProvider } from '@/contexts/lock-context'
 import LockWrapper from '@/components/common/lock-wrapper'
@@ -31,7 +32,38 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const theme = localStorage.getItem('theme') || 'system';
+                  let effectiveTheme = theme;
+                  
+                  if (theme === 'system') {
+                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    effectiveTheme = prefersDark ? 'dark' : 'light';
+                  }
+                  
+                  if (effectiveTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {
+                  // Fallback to system preference if localStorage fails
+                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  if (prefersDark) {
+                    document.documentElement.classList.add('dark');
+                  }
+                }
+              })();
+            `
+          }}
+        />
+      </head>
+      <body className="antialiased">
         <ThemeProvider>
           <div className="min-h-screen font-sans">
             <LockProvider>

@@ -1361,7 +1361,7 @@ function DashboardContent() {
           {title}
         </div>
 
-        <div className="space-y-1 max-h-[108px] overflow-y-auto px-[10px] bg-[#F2F4F5)] rounded-[8px] border border-[rgba(0, 0, 0.04)];">
+        <div className="space-y-1 max-h-[108px] overflow-y-auto px-[10px] bg-[#F2F4F5] dark:bg-gray-800 rounded-[8px] border border-[rgba(0, 0, 0.04)] dark:border-gray-700">
           {functions.map((func) => (
             <div key={func.id} className="flex items-center gap-2 py-1">
               <input

@@ -21,7 +21,7 @@ export default function FeaturesPage() {
       description: 'End-to-end encryption to protect your data'
     },
     {
-      icon: <Zap className="w-12 h-12 text-purple-600" />,
+      icon: <Zap className="w-12 h-12 text-purple-600 dark:text-purple-400" />,
       title: 'Fast Response',
       description: 'Optimized performance for smooth user experience'
     },
@@ -31,7 +31,7 @@ export default function FeaturesPage() {
       description: 'Supports Cursor, Claude, VSCode and more'
     },
     {
-      icon: <Lock className="w-12 h-12 text-orange-600" />,
+      icon: <Lock className="w-12 h-12 text-orange-600 dark:text-orange-400" />,
       title: 'Master Password Protection',
       description: 'Double protection with master password and biometric authentication'
     }
@@ -63,7 +63,7 @@ export default function FeaturesPage() {
           {features.map((feature, index) => (
             <div 
               key={index}
-              className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow"
             >
               <div className="flex flex-col items-center text-center space-y-3">
                 {feature.icon}
@@ -100,10 +100,10 @@ export default function FeaturesPage() {
 
         {/* Progress Dots */}
         <div className="flex justify-center space-x-2 pt-4">
-          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+          <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+          <div className="w-2 h-2 bg-blue-600 dark:bg-blue-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+          <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
         </div>
       </div>
     </div>

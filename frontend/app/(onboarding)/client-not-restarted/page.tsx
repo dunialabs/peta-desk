@@ -60,10 +60,10 @@ export default function ClientNotRestartedPage() {
           </div>
 
           <div className="text-center mb-[24px]">
-            <h2 className="text-[30px] text-[#0A2E6D] font-bold">
+            <h2 className="text-[30px] text-[#0A2E6D] dark:text-gray-100 font-bold">
               Client Not Restarted
             </h2>
-            <div className="text-[#0F172A] text-[14px] leading-relaxed">
+            <div className="text-[#0F172A] dark:text-gray-300 text-[14px] leading-relaxed">
               <p>We found MCP clients but no servers are configured.</p>
               <p>
                 Please completely close your MCP client and restart it to apply
@@ -76,7 +76,7 @@ export default function ClientNotRestartedPage() {
           <Button
             onClick={handleCheckAgain}
             disabled={isChecking}
-            className="w-full h-[22px] bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white  rounded-[5px] font-medium transition-colors"
+            className="w-full h-[22px] bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-800 text-white rounded-[5px] font-medium transition-colors"
           >
             {isChecking ? 'Checking...' : 'Check Again'}
           </Button>

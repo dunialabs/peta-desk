@@ -158,24 +158,24 @@ function UnlockOverlay({ purpose, onSubmit, onClose }: UnlockOverlayProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-white z-50 min-h-screen flex flex-col">
+    <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 min-h-screen flex flex-col">
       <Header showSettingsButton={true} />
 
       <div className="max-w-md mx-auto mt-[100px] w-full flex-1 flex flex-col px-4">
         <div className="w-full flex-1">
           {/* Title */}
           <div className="mb-6">
-            <h1 className="text-[30px] font-bold text-[#0A0A0A] mb-[4px]">
+            <h1 className="text-[30px] font-bold text-[#0A0A0A] dark:text-gray-100 mb-[4px]">
               {title}
             </h1>
-            <p className="text-[14px] text-[#8E8E93] leading-[20px]">
+            <p className="text-[14px] text-[#8E8E93] dark:text-gray-400 leading-[20px]">
               {description}
             </p>
           </div>
 
           {/* Password Input */}
           <div className="mb-6">
-            <label className="block text-[16px] font-semibold text-[#0A0A0A] mb-[8px]">
+            <label className="block text-[16px] font-semibold text-[#0A0A0A] dark:text-gray-100 mb-[8px]">
               Master Password
             </label>
             <div className="relative">
@@ -190,12 +190,12 @@ function UnlockOverlay({ purpose, onSubmit, onClose }: UnlockOverlayProps) {
                 placeholder="Enter master password"
                 autoFocus
                 disabled={isUnlocking}
-                className="w-full h-[48px] px-[16px] pr-[48px] text-[16px] border border-[#D1D1D6] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#26251E] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-[48px] px-[16px] pr-[48px] text-[16px] border border-[#D1D1D6] dark:border-gray-700 rounded-[12px] bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-[#26251E] dark:focus:ring-white focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-[16px] top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-[16px] top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 disabled={isUnlocking}
               >
                 {showPassword ? (
@@ -205,7 +205,7 @@ function UnlockOverlay({ purpose, onSubmit, onClose }: UnlockOverlayProps) {
                 )}
               </button>
             </div>
-            {error && <p className="text-[14px] text-red-500 mt-2">{error}</p>}
+            {error && <p className="text-[14px] text-red-500 dark:text-red-400 mt-2">{error}</p>}
           </div>
         </div>
 
@@ -215,7 +215,7 @@ function UnlockOverlay({ purpose, onSubmit, onClose }: UnlockOverlayProps) {
             <button
               onClick={onClose}
               disabled={isUnlocking}
-              className="flex-1 h-[48px] border border-[#D1D1D6] rounded-[12px] bg-white hover:bg-gray-50 text-[#0A0A0A] text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-[48px] border border-[#D1D1D6] dark:border-gray-700 rounded-[12px] bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-[#0A0A0A] dark:text-gray-100 text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -223,7 +223,7 @@ function UnlockOverlay({ purpose, onSubmit, onClose }: UnlockOverlayProps) {
           <button
             onClick={handleUnlock}
             disabled={isUnlocking || !password}
-            className={`${showCloseButton ? 'flex-1' : 'w-full'} h-[48px] rounded-[12px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`${showCloseButton ? 'flex-1' : 'w-full'} h-[48px] rounded-[12px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isUnlocking ? 'Verifying...' : buttonText}
           </button>

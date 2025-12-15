@@ -160,7 +160,7 @@ export default function RestartClientPage() {
   }
 
   return (
-    <div className="h-screen bg-[rgba(255, 255, 0.70)] flex flex-col">
+    <div className="h-screen bg-[rgba(255, 255, 255, 0.70)] dark:bg-[rgba(17, 24, 39, 0.70)] flex flex-col">
       <Header showLockButton={false} />
       <div className="flex-1 flex flex-col items-center justify-center">
         <div className="w-[388px]">
@@ -208,10 +208,10 @@ export default function RestartClientPage() {
           </div>
 
           <div className="text-center mb-[24px]">
-            <h2 className="text-[30px] text-[#0F172A] font-bold">
+            <h2 className="text-[30px] text-[#0F172A] dark:text-gray-100 font-bold">
               Connecting to Server
             </h2>
-            <div className="text-[#64748B] text-[14px] leading-relaxed">
+            <div className="text-[#64748B] dark:text-gray-400 text-[14px] leading-relaxed">
               <p>
                 <strong>Server configured successfully!</strong>
               </p>
@@ -279,7 +279,7 @@ export default function RestartClientPage() {
           <Button
             onClick={handleContinue}
             disabled={isWaiting}
-            className="w-full h-[22px] rounded-[5px] font-medium transition-all bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="w-full h-[22px] rounded-[5px] font-medium transition-all bg-blue-500 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-700 text-white disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
           >
             {isWaiting ? (
               <span className="flex items-center gap-2">

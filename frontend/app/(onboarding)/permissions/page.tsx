@@ -39,14 +39,14 @@ export default function PermissionsPage() {
     },
     {
       key: 'network',
-      icon: <Globe className="w-8 h-8 text-purple-600" />,
+      icon: <Globe className="w-8 h-8 text-purple-600 dark:text-purple-400" />,
       title: 'Network Access',
       description: 'Connect to local MCP server',
       required: true
     },
     {
       key: 'fileAccess',
-      icon: <FolderOpen className="w-8 h-8 text-orange-600" />,
+      icon: <FolderOpen className="w-8 h-8 text-orange-600 dark:text-orange-400" />,
       title: 'File Access',
       description: 'Save configuration and log files',
       required: true
@@ -105,7 +105,7 @@ export default function PermissionsPage() {
                       {permission.title}
                     </h3>
                     {permission.required && (
-                      <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                      <span className="text-xs bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-1 rounded">
                         Required
                       </span>
                     )}
@@ -120,8 +120,8 @@ export default function PermissionsPage() {
                 disabled={permission.required}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   permissions[permission.key as keyof typeof permissions] || permission.required
-                    ? 'bg-blue-600' 
-                    : 'bg-gray-200'
+                    ? 'bg-blue-600 dark:bg-blue-500' 
+                    : 'bg-gray-200 dark:bg-gray-700'
                 } ${permission.required ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 <span
@@ -137,10 +137,10 @@ export default function PermissionsPage() {
         </div>
 
         {/* Info Box */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start space-x-3">
-          <Info className="w-5 h-5 text-amber-600 mt-0.5" />
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-start space-x-3">
+          <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" />
           <div>
-            <p className="text-sm text-amber-900">
+            <p className="text-sm text-amber-900 dark:text-amber-200">
               You can change these permissions in system settings at any time. Required permissions will be automatically enabled to ensure the application runs properly.
             </p>
           </div>
@@ -176,10 +176,10 @@ export default function PermissionsPage() {
 
         {/* Progress Dots */}
         <div className="flex justify-center space-x-2 pt-4">
-          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+          <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+          <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+          <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+          <div className="w-2 h-2 bg-blue-600 dark:bg-blue-500 rounded-full"></div>
         </div>
       </div>
     </div>

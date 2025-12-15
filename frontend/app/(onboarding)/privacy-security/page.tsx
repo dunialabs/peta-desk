@@ -27,12 +27,12 @@ export default function PrivacySecurityPage() {
       description: 'Sensitive information is encrypted with AES-256'
     },
     {
-      icon: <Eye className="w-8 h-8 text-purple-600" />,
+      icon: <Eye className="w-8 h-8 text-purple-600 dark:text-purple-400" />,
       title: 'Privacy First',
       description: 'We do not collect or transmit your personal data'
     },
     {
-      icon: <Server className="w-8 h-8 text-orange-600" />,
+      icon: <Server className="w-8 h-8 text-orange-600 dark:text-orange-400" />,
       title: 'Secure Connection',
       description: 'All communication with MCP servers is encrypted'
     }
@@ -77,7 +77,7 @@ export default function PrivacySecurityPage() {
                   {point.description}
                 </p>
               </div>
-              <Check className="w-5 h-5 text-green-500 mt-1" />
+              <Check className="w-5 h-5 text-green-500 dark:text-green-400 mt-1" />
             </div>
           ))}
         </div>
@@ -112,10 +112,10 @@ export default function PrivacySecurityPage() {
 
         {/* Progress Dots */}
         <div className="flex justify-center space-x-2 pt-4">
-          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-          <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+          <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+          <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+          <div className="w-2 h-2 bg-blue-600 dark:bg-blue-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
         </div>
       </div>
     </div>

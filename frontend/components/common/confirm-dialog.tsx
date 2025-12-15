@@ -210,11 +210,11 @@ export function ConfirmDialog() {
                 <div className="p-2 rounded-full bg-yellow-100">
                   <ShieldAlert className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
                 </div>
-                <h1 className="text-[30px] font-bold text-[#0A0A0A]">
+                <h1 className="text-[30px] font-bold text-[#0A0A0A] dark:text-gray-100">
                   Authorization Required
                 </h1>
               </div>
-              <p className="text-[14px] text-[#8E8E93] leading-[20px]">
+              <p className="text-[14px] text-[#8E8E93] dark:text-gray-400 leading-[20px]">
                 Enter your master password to authorize this action
               </p>
             </div>
@@ -288,7 +288,7 @@ export function ConfirmDialog() {
 
             {/* Password Input */}
             <div className="mb-6">
-              <label className="block text-[16px] font-semibold text-[#0A0A0A] mb-[8px]">
+              <label className="block text-[16px] font-semibold text-[#0A0A0A] dark:text-gray-100 mb-[8px]">
                 Master Password
               </label>
               <div className="relative">
@@ -303,7 +303,7 @@ export function ConfirmDialog() {
                   placeholder="Enter master password"
                   autoFocus={!biometricAvailable && !isAuthenticating}
                   disabled={isAuthorizing || isAuthenticating}
-                  className="w-full h-[48px] px-[16px] pr-[48px] text-[16px] border border-[#D1D1D6] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#26251E] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full h-[48px] px-[16px] pr-[48px] text-[16px] border border-[#D1D1D6] dark:border-gray-700 rounded-[12px] bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-[#26251E] dark:focus:ring-white focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100"
                 />
                 <button
                   type="button"
@@ -326,7 +326,7 @@ export function ConfirmDialog() {
               <div className="mb-6">
                 <div className="flex items-center mb-4">
                   <div className="flex-1 h-px bg-gray-300"></div>
-                  <span className="px-3 text-[13px] text-[#64748B]">or</span>
+                  <span className="px-3 text-[13px] text-[#64748B] dark:text-gray-400">or</span>
                   <div className="flex-1 h-px bg-gray-300"></div>
                 </div>
 
@@ -351,14 +351,14 @@ export function ConfirmDialog() {
             <button
               onClick={handleCancel}
               disabled={isAuthorizing || isAuthenticating}
-              className="flex-1 h-[48px] border border-[#D1D1D6] rounded-[12px] bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 text-[#0A0A0A] text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-[48px] border border-[#D1D1D6] dark:border-gray-700 rounded-[12px] bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-[#0A0A0A] dark:text-gray-100 text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               onClick={handleAuthorize}
               disabled={isAuthorizing || isAuthenticating || !password}
-              className="flex-1 h-[48px] rounded-[12px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-[48px] rounded-[12px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isAuthorizing ? 'Authorizing...' : 'Authorize'}
             </button>
