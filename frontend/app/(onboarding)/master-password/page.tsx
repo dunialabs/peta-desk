@@ -113,9 +113,9 @@ export default function MasterPasswordPage() {
               <div className="flex gap-1 flex-1">
                 <div className="h-[2px] w-[20px] bg-[#F56711] rounded-full"></div>
                 {hasBiometricSupport && (
-                  <div className="h-[2px] w-[10px] bg-[#D9D9D9] rounded-full"></div>
+                  <div className="h-[2px] w-[10px] bg-[#D9D9D9] dark:bg-gray-600 rounded-full"></div>
                 )}
-                <div className="h-[2px] w-[10px] bg-[#D9D9D9] rounded-full"></div>
+                <div className="h-[2px] w-[10px] bg-[#D9D9D9] dark:bg-gray-600 rounded-full"></div>
               </div>
             </div>
 
@@ -126,14 +126,14 @@ export default function MasterPasswordPage() {
 
             {/* Warning message */}
             <div className="space-y-[8px]">
-              <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[12px] p-[12px]">
-                <p className="text-[#1D40AF] text-[14px] leading-[22px]">
+              <div className="bg-[#EFF6FF] dark:bg-blue-900/20 border border-[#BFDBFE] dark:border-blue-800 rounded-[12px] p-[12px]">
+                <p className="text-[#1D40AF] dark:text-blue-300 text-[14px] leading-[22px]">
                   This password cannot be recovered. Make sure to remember it or
                   store it in a secure location.
                 </p>
               </div>
-              <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg p-4">
-                <p className="text-[#1E40AF] text-[14px]">
+              <div className="bg-[#EFF6FF] dark:bg-blue-900/20 border border-[#BFDBFE] dark:border-blue-800 rounded-lg p-4">
+                <p className="text-[#1E40AF] dark:text-blue-300 text-[14px]">
                   You will need to enter it when launching the app and
                   performing sensitive operations.
                 </p>
@@ -145,7 +145,7 @@ export default function MasterPasswordPage() {
           <div className="space-y-[24px] p-[16px]">
             {/* Master Password */}
             <div>
-              <label className="text-[14px] font-[700] text-[#040B0F] mb-[4px] block">
+              <label className="text-[14px] font-[700] text-[#040B0F] dark:text-gray-100 mb-[4px] block">
                 Master Password
               </label>
               <div className="relative">
@@ -154,7 +154,7 @@ export default function MasterPasswordPage() {
                   value={masterPassword}
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   placeholder="Enter master password"
-                  className="w-full h-[48px] px-4 pr-12 border border-[rgba(4, 11, 15, 0.10)] rounded-[8px] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-full h-[48px] px-4 pr-12 border border-[rgba(4, 11, 15, 0.10)] dark:border-gray-700 rounded-[8px] focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                 />
                 <button
                   type="button"
@@ -168,7 +168,7 @@ export default function MasterPasswordPage() {
 
             {/* Repeated Master Password */}
             <div>
-              <label className="text-[14px] font-[700] text-[#040B0F] mb-[4px] block">
+              <label className="text-[14px] font-[700] text-[#040B0F] dark:text-gray-100 mb-[4px] block">
                 Repeated Master Password
               </label>
               <div className="relative">
@@ -177,7 +177,7 @@ export default function MasterPasswordPage() {
                   value={confirmPassword}
                   onChange={(e) => handleConfirmPasswordChange(e.target.value)}
                   placeholder="Repeated master password"
-                  className="w-full h-[48px] px-4 pr-12 border border-[rgba(4, 11, 15, 0.10)] rounded-[8px] focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                  className="w-full h-[48px] px-4 pr-12 border border-[rgba(4, 11, 15, 0.10)] dark:border-gray-700 rounded-[8px] focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
                 />
                 <button
                   type="button"
@@ -200,7 +200,7 @@ export default function MasterPasswordPage() {
           <button
             onClick={handleCreatePasswordClick}
             disabled={!isValid}
-            className="w-full h-[40px] bg-[#26251e] hover:bg-gray-800 text-white text-[14px] font-[500] rounded-[8px] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            className="w-full h-[40px] bg-[#26251e] dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white text-[14px] font-[500] rounded-[8px] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             <svg
               width="20"
@@ -225,7 +225,7 @@ export default function MasterPasswordPage() {
       {showConfirmDialog && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-900 rounded-[10px] p-[16px] max-w-[260px] w-full shadow-xl">
-            <h2 className="text-[13px] font-bold text-center text-[#26251e] mb-[10px]">
+            <h2 className="text-[13px] font-bold text-center text-[#26251e] dark:text-gray-100 mb-[10px]">
               Important
             </h2>
             <p className="text-[11px] text-center text-gray-900 dark:text-gray-100 leading-[14px] mb-[16px]">
@@ -235,13 +235,13 @@ export default function MasterPasswordPage() {
             <div className="flex gap-[8px]">
               <button
                 onClick={handleConfirmReset}
-                className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)]"
+                className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] dark:text-gray-100 text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] dark:hover:bg-gray-700 shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)]"
               >
                 Reset
               </button>
               <button
                 onClick={handleConfirmContinue}
-                className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)]"
+                className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)]"
               >
                 Continue
               </button>

@@ -94,9 +94,9 @@ export default function AutoLockTimerPage() {
               INITIALIZATION
             </span>
             <div className="flex gap-1 flex-1">
-              <div className="h-[2px] w-[10px] bg-[#D9D9D9] rounded-full"></div>
+              <div className="h-[2px] w-[10px] bg-[#D9D9D9] dark:bg-gray-600 rounded-full"></div>
               {hasBiometricStep && (
-                <div className="h-[2px] w-[10px] bg-[#D9D9D9] rounded-full"></div>
+                <div className="h-[2px] w-[10px] bg-[#D9D9D9] dark:bg-gray-600 rounded-full"></div>
               )}
               <div className="h-[2px] w-[20px] bg-[#F56711] rounded-full"></div>
             </div>
@@ -108,7 +108,7 @@ export default function AutoLockTimerPage() {
           </h1>
 
           {/* Description */}
-          <p className="text-[#7C8C94] text-[14px] leading-[22px]">
+          <p className="text-[#7C8C94] dark:text-gray-400 text-[14px] leading-[22px]">
             Set how long your password stays active
             <br />
             After this time,your data automatically locks for security
@@ -119,7 +119,7 @@ export default function AutoLockTimerPage() {
           <select
             value={selectedTime}
             onChange={(e) => setSelectedTime(parseInt(e.target.value))}
-            className="w-full h-[48px] px-4 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg appearance-none bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-[14px]"
+            className="w-full h-[48px] px-4 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg appearance-none bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent text-[14px] text-gray-900 dark:text-gray-100"
           >
             {timeOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -128,7 +128,7 @@ export default function AutoLockTimerPage() {
             ))}
           </select>
           <ChevronDown
-            className="absolute right-[32px] top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            className="absolute right-[32px] top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
             size={20}
           />
         </div>
@@ -137,7 +137,7 @@ export default function AutoLockTimerPage() {
         <div className="mt-auto p-[16px]">
           <button
             onClick={handleNext}
-            className="w-full h-[40px] bg-[#26251e] hover:bg-gray-800 text-white text-[14px] font-[500] rounded-[8px] transition-colors"
+            className="w-full h-[40px] bg-[#26251e] dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white text-[14px] font-[500] rounded-[8px] transition-colors"
           >
             Next
           </button>
@@ -148,7 +148,7 @@ export default function AutoLockTimerPage() {
       {showResetDialog && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-900 rounded-[10px] p-[16px] max-w-[260px] w-full shadow-xl">
-            <h2 className="text-[13px] font-bold text-center text-[#26251e] mb-[10px]">
+            <h2 className="text-[13px] font-bold text-center text-[#26251e] dark:text-gray-100 mb-[10px]">
               Start Configuration Over?
             </h2>
             <p className="text-[11px] text-center text-gray-900 dark:text-gray-100 leading-[14px] mb-[16px]">
@@ -157,13 +157,13 @@ export default function AutoLockTimerPage() {
             <div className="flex gap-[8px]">
               <button
                 onClick={handleResetCancel}
-                className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)]"
+                className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] dark:text-gray-100 text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] dark:hover:bg-gray-700 shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleResetConfirm}
-                className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)]"
+                className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)]"
               >
                 Confirm
               </button>

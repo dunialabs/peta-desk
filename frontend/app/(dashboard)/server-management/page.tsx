@@ -305,7 +305,7 @@ export default function ServerManagementPage() {
       <div className="max-w-md mt-[14px] w-full flex-1 flex flex-col h-full justify-between">
         {/* Content area */}
         {/* Title */}
-        <h1 className="text-[20px] leading-tight font-bold text-[#26251e] p-[16px]">
+        <h1 className="text-[20px] leading-tight font-bold text-[#26251e] dark:text-gray-100 p-[16px]">
           Manage MCP Server
         </h1>
         <div className="space-y-[12px] p-[16px]">
@@ -326,7 +326,7 @@ export default function ServerManagementPage() {
                     alt="server-icon"
                     className="w-[26px] h-[26px] flex-shrink-0"
                   />
-                  <span className="text-[16px] font-semibold text-[#0A0A0A]">
+                  <span className="text-[16px] font-semibold text-[#0A0A0A] dark:text-gray-100">
                     {server.serverName}
                   </span>
                 </div>
@@ -343,7 +343,7 @@ export default function ServerManagementPage() {
                   {/* Config Button */}
                   <button
                     onClick={() => handleEdit(server)}
-                    className="px-[12px] py-[4px] bg-white dark:bg-gray-900 border border-[#D1D1D6] rounded-[8px] text-[14px] font-medium text-[#0A0A0A] hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors"
+                    className="px-[12px] py-[4px] bg-white dark:bg-gray-900 border border-[#D1D1D6] dark:border-gray-700 rounded-[8px] text-[14px] font-medium text-[#0A0A0A] dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     Config
                   </button>
@@ -357,13 +357,13 @@ export default function ServerManagementPage() {
         <div className="mt-auto flex flex-row p-[16px] gap-[12px]">
           <button
             onClick={handleClose}
-            className="flex-1 h-[40px] bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 text-[#26251e] text-[14px] font-[500] rounded-[8px] transition-colors"
+            className="flex-1 h-[40px] bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 text-[#26251e] dark:text-gray-100 text-[14px] font-[500] rounded-[8px] transition-colors"
           >
             Close
           </button>
           <button
             onClick={handleAdd}
-            className="flex-1 h-[40px] bg-[#26251e] hover:bg-gray-800 text-white text-[14px] font-[500] rounded-[8px] transition-colors"
+            className="flex-1 h-[40px] bg-[#26251e] dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white text-[14px] font-[500] rounded-[8px] transition-colors"
           >
             Add MCP Server
           </button>

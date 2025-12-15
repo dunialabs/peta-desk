@@ -80,7 +80,7 @@ export function PasswordDialog({
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-900 rounded-[10px] p-[16px] max-w-[280px] w-full shadow-xl">
-        <h2 className="text-[13px] font-bold text-center text-[#26251e] mb-[10px]">
+        <h2 className="text-[13px] font-bold text-center text-[#26251e] dark:text-gray-100 mb-[10px]">
           {title}
         </h2>
         <p className="text-[11px] text-center text-gray-900 dark:text-gray-100 leading-[14px] mb-[12px]">
@@ -105,7 +105,7 @@ export function PasswordDialog({
               placeholder="Master Password"
               autoFocus
               disabled={isSubmitting}
-              className="w-full h-[28px] px-[8px] pr-[32px] text-[13px] border border-gray-300 dark:border-gray-600 rounded-[5px] focus:outline-none focus:ring-1 focus:ring-[#26251E] focus:border-[#26251E] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-[28px] px-[8px] pr-[32px] text-[13px] border border-gray-300 dark:border-gray-600 rounded-[5px] bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-[#26251E] dark:focus:ring-white focus:border-[#26251E] dark:focus:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100"
             />
             <button
               type="button"
@@ -130,7 +130,7 @@ export function PasswordDialog({
             <button
               onClick={handleClose}
               disabled={isSubmitting}
-              className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] dark:text-gray-100 text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] dark:hover:bg-gray-700 shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -138,7 +138,7 @@ export function PasswordDialog({
           <button
             onClick={handleSubmit}
             disabled={!password || isSubmitting}
-            className={`${showCancel ? 'flex-1' : 'w-full'} h-[28px] rounded-[5px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)] disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`${showCancel ? 'flex-1' : 'w-full'} h-[28px] rounded-[5px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)] disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isSubmitting ? 'Verifying...' : buttonText}
           </button>

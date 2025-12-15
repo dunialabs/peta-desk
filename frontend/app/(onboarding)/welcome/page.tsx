@@ -15,7 +15,7 @@ export default function WelcomePage() {
         <>
           <span className="text-[#F56711]">Secure MCP Infrastructure</span>
           <br />
-          <span className="text-[#26251e]">for Production AI</span>
+          <span className="text-[#26251e] dark:text-gray-100">for Production AI</span>
         </>
       ),
       description:
@@ -87,7 +87,7 @@ export default function WelcomePage() {
                   className={`h-[2px] rounded-full transition-colors ${
                     index === currentSlide
                       ? 'bg-[#F56711] w-[20px]'
-                      : 'bg-[#B6BEC2] w-[10px]'
+                      : 'bg-[#B6BEC2] dark:bg-gray-600 w-[10px]'
                   }`}
                 />
               ))}
@@ -99,7 +99,7 @@ export default function WelcomePage() {
             </h1>
 
             {/* Description */}
-            <p className="text-[#7C8C94] text-[14px] leading-relaxed">
+            <p className="text-[#7C8C94] dark:text-gray-400 text-[14px] leading-relaxed">
               {slides[currentSlide].description}
             </p>
           </div>
@@ -109,7 +109,7 @@ export default function WelcomePage() {
         <div className="mt-auto py-[16px]">
           <Button
             onClick={handleStartNow}
-            className="w-full h-[40px] bg-[#26251e] hover:bg-gray-800 text-white text-[14px] font-[500] rounded-[8px]"
+            className="w-full h-[40px] bg-[#26251e] dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white text-[14px] font-[500] rounded-[8px]"
           >
             Start Now
           </Button>

@@ -1641,7 +1641,7 @@ function DashboardContent() {
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-[14px] font-[400] text-[#26251E]">
+                          <span className="text-[14px] font-[400] text-[#26251E] dark:text-gray-100">
                             {serverName}
                           </span>
 
@@ -1655,7 +1655,7 @@ function DashboardContent() {
 
                           {/* Connecting: gray tag */}
                           {isReconnecting && (
-                            <span className="px-[8px] py-[2px] text-[11px] text-[#8E8E93] bg-[#F5F5F5] rounded-[6px] border-0 flex-shrink-0">
+                            <span className="px-[8px] py-[2px] text-[11px] text-[#8E8E93] dark:text-gray-400 bg-[#F5F5F5] dark:bg-gray-800 rounded-[6px] border-0 flex-shrink-0">
                               connecting
                             </span>
                           )}
@@ -1663,7 +1663,7 @@ function DashboardContent() {
                           {/* Connect failed: red tag + retry button */}
                           {connectionFailed && !isReconnecting && (
                             <div className="flex items-center gap-2">
-                              <span className="px-[8px] py-[2px] text-[11px] text-[#FF3B30] bg-transparent rounded-[6px] border-0 flex-shrink-0">
+                              <span className="px-[8px] py-[2px] text-[11px] text-[#FF3B30] dark:text-red-400 bg-transparent rounded-[6px] border-0 flex-shrink-0">
                                 Connect Failed
                               </span>
                               <button
@@ -1671,7 +1671,7 @@ function DashboardContent() {
                                 className="p-[4px] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-[4px] transition-colors"
                                 title="Retry connection"
                               >
-                                <RefreshCw className="w-3 h-3 text-[#8E8E93]" />
+                                <RefreshCw className="w-3 h-3 text-[#8E8E93] dark:text-gray-400" />
                               </button>
                             </div>
                           )}
@@ -1683,7 +1683,7 @@ function DashboardContent() {
                         </div>
 
                         {/* Connection Info */}
-                        <div className="text-[11px] text-[#8E8E93] mt-[4px]">
+                        <div className="text-[11px] text-[#8E8E93] dark:text-gray-400 mt-[4px]">
                           {totalClients} {clientText} Connected
                         </div>
                       </div>
@@ -1720,7 +1720,7 @@ function DashboardContent() {
                               )
                             }
                           }}
-                          className="px-[12px] py-[4px] text-xs bg-[white] text-[#26251E] rounded-[8px] border border-gray-200 dark:border-gray-700 transition-colors flex items-center gap-1 flex-shrink-0"
+                          className="px-[12px] py-[4px] text-xs bg-[white] dark:bg-gray-900 text-[#26251E] dark:text-gray-100 rounded-[8px] border border-gray-200 dark:border-gray-700 transition-colors flex items-center gap-1 flex-shrink-0"
                         >
                           Add to Client
                           <ChevronDown className="w-3 h-3" />
@@ -1915,7 +1915,7 @@ function DashboardContent() {
         {showDisconnectDialog && (
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-900 rounded-[10px] p-[16px] max-w-[260px] w-full shadow-xl">
-              <h2 className="text-[13px] font-bold text-center text-[#26251e] mb-[10px]">
+              <h2 className="text-[13px] font-bold text-center text-[#26251e] dark:text-gray-100 mb-[10px]">
                 Disconnect Authorization?
               </h2>
               <p className="text-[11px] text-center text-gray-900 dark:text-gray-100 leading-[14px] mb-[16px]">
@@ -1949,14 +1949,14 @@ function DashboardContent() {
                 <button
                   onClick={() => setShowDisconnectDialog(false)}
                   disabled={isAuthenticating}
-                  className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] dark:text-gray-100 text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] dark:hover:bg-gray-700 shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmDisconnect}
                   disabled={isAuthenticating}
-                  className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isAuthenticating ? 'Disconnecting...' : 'Disconnect'}
                 </button>

@@ -113,19 +113,19 @@ function SecurityAuthorizationContent() {
           </div>
 
           {/* Title */}
-          <h1 className="text-2xl font-bold text-slate-900 mb-3">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-gray-100 mb-3">
             Security Authorization
             <br />
             Required
           </h1>
 
           {/* Description */}
-          <div className="text-slate-600 space-y-2 mb-4">
+          <div className="text-slate-600 dark:text-gray-400 space-y-2 mb-4">
             <p className="text-sm">
               <span className="font-medium">{clientName}</span> is attempting to
               execute a high-risk operation:
             </p>
-            <p className="text-sm font-mono bg-slate-100 px-3 py-1 rounded">
+            <p className="text-sm font-mono bg-slate-100 dark:bg-gray-800 px-3 py-1 rounded text-gray-900 dark:text-gray-100">
               {toolName} → {functionName}
             </p>
             <p className="text-sm text-blue-600 dark:text-blue-400">
@@ -140,7 +140,7 @@ function SecurityAuthorizationContent() {
           <div className="space-y-2">
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-slate-700"
+              className="block text-sm font-medium text-slate-700 dark:text-gray-300"
             >
               Master Password
             </label>
@@ -164,7 +164,7 @@ function SecurityAuthorizationContent() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400"
                 disabled={isLoading}
               >
                 {showPassword ? (
@@ -175,14 +175,14 @@ function SecurityAuthorizationContent() {
               </button>
             </div>
 
-            {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+            {error && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>}
           </div>
 
           <div className="text-center">
             <button
               type="button"
               onClick={handleForgotPassword}
-              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 underline"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline"
               disabled={isLoading}
             >
               Forgot Master Password?

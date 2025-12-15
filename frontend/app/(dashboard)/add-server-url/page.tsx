@@ -154,27 +154,27 @@ function AddServerUrlContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F5F5]">
+    <div className="min-h-screen flex flex-col bg-[#F5F5F5] dark:bg-gray-900">
       <Header showSettingsButton={true} />
 
       <div className="max-w-2xl mx-auto mt-[100px] w-full flex-1 flex flex-col px-4">
         <div className="w-full flex-1">
           {/* Title */}
           <div className="mb-6">
-            <h1 className="text-[30px] font-bold text-[#0A0A0A] mb-[4px]">
+            <h1 className="text-[30px] font-bold text-[#0A0A0A] dark:text-gray-100 mb-[4px]">
               Add MCP Server With URL
             </h1>
-            <p className="text-[14px] text-[#8E8E93] leading-[20px]">
+            <p className="text-[14px] text-[#8E8E93] dark:text-gray-400 leading-[20px]">
               Copy the url configuration below to your MCP client configuration
               file to connect to Peta Desk service.
             </p>
           </div>
 
           {/* URL Display */}
-          <div className="bg-[#F5F5F5] rounded-[12px] border border-[#D1D1D6] p-4 mb-4 relative">
+          <div className="bg-[#F5F5F5] dark:bg-gray-800 rounded-[12px] border border-[#D1D1D6] dark:border-gray-700 p-4 mb-4 relative">
             <button
               onClick={handleCopy}
-              className="absolute top-3 right-3 px-3 py-1.5 rounded-[8px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[13px] font-medium transition-colors flex items-center gap-1.5 z-10"
+              className="absolute top-3 right-3 px-3 py-1.5 rounded-[8px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[13px] font-medium transition-colors flex items-center gap-1.5 z-10"
             >
               <svg
                 width="14"
@@ -203,7 +203,7 @@ function AddServerUrlContent() {
               </svg>
               {copyButtonText}
             </button>
-            <div className="font-mono text-[13px] text-[#0A0A0A] break-all leading-[20px] pr-20">
+            <div className="font-mono text-[13px] text-[#0A0A0A] dark:text-gray-100 break-all leading-[20px] pr-20">
               {serverUrl || 'Loading...'}
             </div>
             {/* Prevent manual copy when token is encrypted */}
@@ -214,8 +214,8 @@ function AddServerUrlContent() {
 
           {/* Warning Message (conditional) */}
           {showWarning && (
-            <div className="bg-[#E8F4FD] rounded-[12px] border border-[#B3D9F2] p-4 mb-6">
-              <p className="text-[13px] text-[#0066CC] leading-[18px]">
+            <div className="bg-[#E8F4FD] dark:bg-blue-900/20 rounded-[12px] border border-[#B3D9F2] dark:border-blue-800 p-4 mb-6">
+              <p className="text-[13px] text-[#0066CC] dark:text-blue-300 leading-[18px]">
                 Some clients (such as Claude Desktop) do not support IP address
                 connections. Please go to the Network Access feature of Peta
                 Console to turn on domain name access.
@@ -225,8 +225,8 @@ function AddServerUrlContent() {
 
           {/* Encrypted Token Warning */}
           {isTokenEncrypted && (
-            <div className="bg-[#FFF4E5] rounded-[12px] border border-[#FFD699] p-4 mb-6">
-              <p className="text-[13px] text-[#8B5A00] leading-[18px]">
+            <div className="bg-[#FFF4E5] dark:bg-yellow-900/20 rounded-[12px] border border-[#FFD699] dark:border-yellow-800 p-4 mb-6">
+              <p className="text-[13px] text-[#8B5A00] dark:text-yellow-300 leading-[18px]">
                 ⚠️ The access token is encrypted. Click the Copy button to decrypt it with your master password before copying.
               </p>
             </div>
@@ -234,10 +234,10 @@ function AddServerUrlContent() {
         </div>
 
         {/* Bottom Buttons */}
-        <div className="flex gap-4 pb-6 sticky bottom-0 bg-[#F5F5F5] pt-4">
+        <div className="flex gap-4 pb-6 sticky bottom-0 bg-[#F5F5F5] dark:bg-gray-900 pt-4">
           <button
             onClick={handleClose}
-            className="w-full h-[48px] border border-[#D1D1D6] rounded-[12px] bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 text-[#0A0A0A] text-[14px] font-medium transition-colors"
+            className="w-full h-[48px] border border-[#D1D1D6] dark:border-gray-700 rounded-[12px] bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-[#0A0A0A] dark:text-gray-100 text-[14px] font-medium transition-colors"
           >
             Close
           </button>

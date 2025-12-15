@@ -63,7 +63,7 @@ export default function ResetMasterPasswordPage() {
                 </div>
               </div>
               <div className="flex-1">
-                <p className="text-sm text-[#FF9500] leading-relaxed">
+                <p className="text-sm text-[#FF9500] dark:text-orange-400 leading-relaxed">
                   <span className="font-bold">Warning: </span>
                   This action will permanently delete all local data, including server connection information, settings, and configurations. This operation cannot be undone. Please make sure you have backed up any important data before proceeding.
                 </p>
@@ -73,14 +73,14 @@ export default function ResetMasterPasswordPage() {
 
           {/* Confirmation Input */}
           <div>
-            <div className="text-[14px] font-[700] text-[#040B0F] mb-[4px]">
+            <div className="text-[14px] font-[700] text-[#040B0F] dark:text-gray-100 mb-[4px]">
               Type &quot;{expectedText}&quot; to confirm:
             </div>
             <div className="relative">
               {/* Persistent hint background layer */}
               <div className="absolute inset-0 flex items-center px-4 pointer-events-none">
                 <span
-                  className={`text-[14px] text-[#94A3B8] ${
+                  className={`text-[14px] text-[#94A3B8] dark:text-gray-400 ${
                     confirmText ? 'opacity-40' : 'opacity-100'
                   }`}
                 >
@@ -92,7 +92,7 @@ export default function ResetMasterPasswordPage() {
                 type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                className="w-full h-[48px] text-[14px] px-4 bg-white dark:bg-gray-900 border border-[rgba(4, 11, 15, 0.10)] rounded-[8px] focus:border-transparent focus:ring-2 focus:ring-black focus:outline-none relative z-10"
+                className="w-full h-[48px] text-[14px] px-4 bg-white dark:bg-gray-900 border border-[rgba(4, 11, 15, 0.10)] dark:border-gray-700 rounded-[8px] focus:border-transparent focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none relative z-10 text-gray-900 dark:text-gray-100"
               />
             </div>
           </div>
@@ -103,7 +103,7 @@ export default function ResetMasterPasswordPage() {
           <Button
             onClick={handleCancel}
             variant="outline"
-            className="flex-1 h-[40px] text-[14px] border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 text-[#26251e] rounded-[8px] font-[500] transition-colors"
+            className="flex-1 h-[40px] text-[14px] border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 text-[#26251e] dark:text-gray-100 rounded-[8px] font-[500] transition-colors"
           >
             Cancel
           </Button>
@@ -111,7 +111,7 @@ export default function ResetMasterPasswordPage() {
           <Button
             onClick={handleReset}
             disabled={!isValid}
-            className="flex-1 h-[40px] text-[14px] bg-[#26251e] hover:bg-gray-800 text-white rounded-[8px] font-[500] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 h-[40px] text-[14px] bg-[#26251e] dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white rounded-[8px] font-[500] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Reset and Clear All Data
           </Button>

@@ -179,9 +179,9 @@ export default function BiometricSetupPage() {
                 INITIALIZATION
               </span>
               <div className="flex gap-1 flex-1">
-                <div className="h-[2px] w-[10px] bg-[#D9D9D9] rounded-full"></div>
+                <div className="h-[2px] w-[10px] bg-[#D9D9D9] dark:bg-gray-600 rounded-full"></div>
                 <div className="h-[2px] w-[20px] bg-[#F56711] rounded-full"></div>
-                <div className="h-[2px] w-[10px] bg-[#D9D9D9] rounded-full"></div>
+                <div className="h-[2px] w-[10px] bg-[#D9D9D9] dark:bg-gray-600 rounded-full"></div>
               </div>
             </div>
 
@@ -191,7 +191,7 @@ export default function BiometricSetupPage() {
             </h1>
 
             {/* Description */}
-            <p className="text-[#7C8C94] text-[14px] leading-[22px]">
+            <p className="text-[#7C8C94] dark:text-gray-400 text-[14px] leading-[22px]">
               Use biometric authentication to unlock the app instead of typing your master password every time.
             </p>
           </div>
@@ -216,10 +216,10 @@ export default function BiometricSetupPage() {
                       }`}
                     >
                       <div className="flex-1 mr-4 min-w-0">
-                        <div className="text-[14px] font-[400] leading-[22px] text-[#2A373D] mb-[2px]">
+                        <div className="text-[14px] font-[400] leading-[22px] text-[#2A373D] dark:text-gray-200 mb-[2px]">
                           {biometricSettings.find((s) => s.id === 'touchid')?.title || 'Touch ID'}
                         </div>
-                        <div className="text-[12px] text-[#7C8C94] leading-[20px] truncate">
+                        <div className="text-[12px] text-[#7C8C94] dark:text-gray-400 leading-[20px] truncate">
                           {biometricSettings.find((s) => s.id === 'touchid')?.description || 'Use Touch ID to unlock instead of typing master password'}
                         </div>
                       </div>
@@ -240,10 +240,10 @@ export default function BiometricSetupPage() {
                       }`}
                     >
                       <div className="flex-1 mr-4 min-w-0">
-                        <div className="text-[14px] font-[400] leading-[22px] text-[#2A373D] mb-[2px]">
+                        <div className="text-[14px] font-[400] leading-[22px] text-[#2A373D] dark:text-gray-200 mb-[2px]">
                           FaceID
                         </div>
-                        <div className="text-[12px] text-[#7C8C94] leading-[20px] truncate">
+                        <div className="text-[12px] text-[#7C8C94] dark:text-gray-400 leading-[20px] truncate">
                           Use Face ID to unlock instead of typing master passwo...
                         </div>
                       </div>
@@ -258,10 +258,10 @@ export default function BiometricSetupPage() {
                   {biometricAvailable?.windowsHello && (
                     <div className="flex items-center justify-between py-[12px]">
                       <div className="flex-1 mr-4 min-w-0">
-                        <div className="text-[14px] font-[400] leading-[22px] text-[#2A373D] mb-[2px]">
+                        <div className="text-[14px] font-[400] leading-[22px] text-[#2A373D] dark:text-gray-200 mb-[2px]">
                           Windows Hello
                         </div>
-                        <div className="text-[12px] text-[#7C8C94] leading-[20px] truncate">
+                        <div className="text-[12px] text-[#7C8C94] dark:text-gray-400 leading-[20px] truncate">
                           Use Windows Hello to unlock instead of typing master password
                         </div>
                       </div>
@@ -297,7 +297,7 @@ export default function BiometricSetupPage() {
         <div className="mt-auto p-[16px]">
           <button
             onClick={handleNext}
-            className="w-full h-[40px] bg-[#26251e] hover:bg-gray-800 text-white text-[14px] font-[500] rounded-[8px] transition-colors"
+            className="w-full h-[40px] bg-[#26251e] dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white text-[14px] font-[500] rounded-[8px] transition-colors"
           >
             Next
           </button>
@@ -308,7 +308,7 @@ export default function BiometricSetupPage() {
       {showResetDialog && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-900 rounded-[10px] p-[16px] max-w-[260px] w-full shadow-xl">
-            <h2 className="text-[13px] font-bold text-center text-[#26251e] mb-[10px]">
+            <h2 className="text-[13px] font-bold text-center text-[#26251e] dark:text-gray-100 mb-[10px]">
               Start Configuration Over?
             </h2>
             <p className="text-[11px] text-center text-gray-900 dark:text-gray-100 leading-[14px] mb-[16px]">
@@ -317,13 +317,13 @@ export default function BiometricSetupPage() {
             <div className="flex gap-[8px]">
               <button
                 onClick={handleResetCancel}
-                className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)]"
+                className="flex-1 h-[28px] rounded-[5px] bg-gray-100 dark:bg-gray-800 text-[#26251e] dark:text-gray-100 text-[13px] font-[400] transition-colors hover:bg-[rgba(0,0,0,0.15)] dark:hover:bg-gray-700 shadow-[inset_0_0.5px_0.5px_rgba(255,255,255,0.25)]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleResetConfirm}
-                className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)]"
+                className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)]"
               >
                 Confirm
               </button>

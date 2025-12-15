@@ -166,27 +166,27 @@ function AddServerJsonContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F5F5]">
+    <div className="min-h-screen flex flex-col bg-[#F5F5F5] dark:bg-gray-900">
       <Header showSettingsButton={true} />
 
       <div className="max-w-2xl mx-auto mt-[100px] w-full flex-1 flex flex-col px-4">
         <div className="w-full flex-1">
           {/* Title */}
           <div className="mb-6">
-            <h1 className="text-[30px] font-bold text-[#0A0A0A] mb-[4px]">
+            <h1 className="text-[30px] font-bold text-[#0A0A0A] dark:text-gray-100 mb-[4px]">
               Add MCP Server With JSON
             </h1>
-            <p className="text-[14px] text-[#8E8E93] leading-[20px]">
+            <p className="text-[14px] text-[#8E8E93] dark:text-gray-400 leading-[20px]">
               Copy the JSON configuration below to your MCP client configuration
               file to connect to Peta Desk service.
             </p>
           </div>
 
           {/* JSON Display */}
-          <div className="bg-[#F5F5F5] rounded-[12px] border border-[#D1D1D6] p-4 mb-4 relative">
+          <div className="bg-[#F5F5F5] dark:bg-gray-800 rounded-[12px] border border-[#D1D1D6] dark:border-gray-700 p-4 mb-4 relative">
             <button
               onClick={handleCopy}
-              className="absolute top-3 right-3 px-3 py-1.5 rounded-[8px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[13px] font-medium transition-colors flex items-center gap-1.5 z-10"
+              className="absolute top-3 right-3 px-3 py-1.5 rounded-[8px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[13px] font-medium transition-colors flex items-center gap-1.5 z-10"
             >
               <svg
                 width="14"
@@ -215,7 +215,7 @@ function AddServerJsonContent() {
               </svg>
               {copyButtonText}
             </button>
-            <pre className="font-mono text-[13px] text-[#0A0A0A] leading-[20px] whitespace-pre-wrap break-words pr-20">
+            <pre className="font-mono text-[13px] text-[#0A0A0A] dark:text-gray-100 leading-[20px] whitespace-pre-wrap break-words pr-20">
               {jsonConfig || 'Loading...'}
             </pre>
             {/* Prevent manual copy when token is encrypted */}
@@ -226,8 +226,8 @@ function AddServerJsonContent() {
 
           {/* Warning Message (if token is encrypted) */}
           {isTokenEncrypted && (
-            <div className="bg-[#FFF4E5] rounded-[12px] border border-[#FFD699] p-4 mb-4">
-              <p className="text-[13px] text-[#8B5A00] leading-[18px]">
+            <div className="bg-[#FFF4E5] dark:bg-yellow-900/20 rounded-[12px] border border-[#FFD699] dark:border-yellow-800 p-4 mb-4">
+              <p className="text-[13px] text-[#8B5A00] dark:text-yellow-300 leading-[18px]">
                 ⚠️ The access token is encrypted. Click the Copy button to decrypt it with your master password before copying.
               </p>
             </div>
@@ -235,10 +235,10 @@ function AddServerJsonContent() {
         </div>
 
         {/* Bottom Buttons */}
-        <div className="flex gap-4 pb-6 sticky bottom-0 bg-[#F5F5F5] pt-4">
+        <div className="flex gap-4 pb-6 sticky bottom-0 bg-[#F5F5F5] dark:bg-gray-900 pt-4">
           <button
             onClick={handleClose}
-            className="w-full h-[48px] border border-[#D1D1D6] rounded-[12px] bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 text-[#0A0A0A] text-[14px] font-medium transition-colors"
+            className="w-full h-[48px] border border-[#D1D1D6] dark:border-gray-700 rounded-[12px] bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-[#0A0A0A] dark:text-gray-100 text-[14px] font-medium transition-colors"
           >
             Close
           </button>

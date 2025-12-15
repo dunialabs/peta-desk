@@ -474,7 +474,7 @@ function MCPSetupContent() {
           <button
             onClick={handleCompleteSetup}
             disabled={!isFormValid || isSubmitting}
-            className="flex-1 h-[48px] rounded-[12px] bg-[#26251E] dark:bg-blue-600 hover:bg-[#3A3933] dark:hover:bg-blue-700 text-white text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#26251E] dark:disabled:hover:bg-blue-600"
+            className="flex-1 h-[48px] rounded-[12px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#26251E] dark:disabled:hover:bg-gray-700"
           >
             {isSubmitting
               ? 'Saving...'

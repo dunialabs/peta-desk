@@ -346,8 +346,8 @@ export default function ProtocolHandlerPage() {
           {/* Loading State */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#26251E]"></div>
-              <p className="mt-4 text-[14px] text-[#8E8E93]">Loading authorization request...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#26251E] dark:border-gray-700"></div>
+              <p className="mt-4 text-[14px] text-[#8E8E93] dark:text-gray-400">Loading authorization request...</p>
             </div>
           )}
 
@@ -358,11 +358,11 @@ export default function ProtocolHandlerPage() {
                 <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
                   <LockOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h1 className="text-[30px] font-bold text-[#0A0A0A]">
+                <h1 className="text-[30px] font-bold text-[#0A0A0A] dark:text-gray-100">
                   Authorization to Client.
                 </h1>
               </div>
-              <p className="text-[14px] text-[#8E8E93] leading-[20px]">
+              <p className="text-[14px] text-[#8E8E93] dark:text-gray-400 leading-[20px]">
                 Select a server and enter your password to continue
               </p>
             </div>
@@ -371,13 +371,13 @@ export default function ProtocolHandlerPage() {
           {/* Server Selection */}
           {!isLoading && matchedServers.length > 0 && (
             <div className="mb-6">
-              <label className="block text-[16px] font-semibold text-[#0A0A0A] mb-[8px]">
+              <label className="block text-[16px] font-semibold text-[#0A0A0A] dark:text-gray-100 mb-[8px]">
                 Select Server
               </label>
               <select
                 value={selectedServerId}
                 onChange={(e) => setSelectedServerId(e.target.value)}
-                className="w-full h-[48px] px-[16px] text-[16px] border border-[#D1D1D6] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#26251E] focus:border-transparent disabled:opacity-50"
+                className="w-full h-[48px] px-[16px] text-[16px] border border-[#D1D1D6] dark:border-gray-700 rounded-[12px] bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-[#26251E] dark:focus:ring-white focus:border-transparent disabled:opacity-50 text-gray-900 dark:text-gray-100"
                 disabled={matchedServers.length === 1}
               >
                 {matchedServers.length > 1 && (
@@ -441,7 +441,7 @@ export default function ProtocolHandlerPage() {
           {/* Master Password Input */}
           {!isLoading && matchedServers.length > 0 && (
             <div className="mb-6">
-              <label className="block text-[16px] font-semibold text-[#0A0A0A] mb-[8px]">
+              <label className="block text-[16px] font-semibold text-[#0A0A0A] dark:text-gray-100 mb-[8px]">
                 Master Password
               </label>
               <div className="relative">
@@ -460,7 +460,7 @@ export default function ProtocolHandlerPage() {
                   placeholder="Enter master password"
                   autoFocus
                   disabled={isProcessing}
-                  className="w-full h-[48px] px-[16px] pr-[48px] text-[16px] border border-[#D1D1D6] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#26251E] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full h-[48px] px-[16px] pr-[48px] text-[16px] border border-[#D1D1D6] dark:border-gray-700 rounded-[12px] bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-[#26251E] dark:focus:ring-white focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-gray-100"
                 />
                 <button
                   type="button"
@@ -488,7 +488,7 @@ export default function ProtocolHandlerPage() {
             <button
               onClick={() => router.push(returnUrl)}
               disabled={isProcessing}
-              className="flex-1 h-[48px] border border-[#D1D1D6] rounded-[12px] bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-800 text-[#0A0A0A] text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-[48px] border border-[#D1D1D6] dark:border-gray-700 rounded-[12px] bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-[#0A0A0A] dark:text-gray-100 text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -496,7 +496,7 @@ export default function ProtocolHandlerPage() {
               <button
                 onClick={handleOpenBrowser}
                 disabled={!selectedServerId || !password || isProcessing}
-                className="flex-1 h-[48px] rounded-[12px] bg-[#26251E] hover:bg-[#3A3933] text-white text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 h-[48px] rounded-[12px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isProcessing ? 'Processing...' : 'Open Browser'}
               </button>
