@@ -56,74 +56,120 @@
   body {
     @apply bg-background text-foreground;
   }
-}
 
-/* Windows scrollbar dark mode support */
-@layer utilities {
+  /* Windows scrollbar dark mode support - Applied globally */
   /* Webkit browsers (Chrome, Edge, etc.) - Global scrollbar styles */
+  html.dark ::-webkit-scrollbar,
   .dark ::-webkit-scrollbar {
     width: 12px;
     height: 12px;
   }
 
+  html.dark ::-webkit-scrollbar-track,
   .dark ::-webkit-scrollbar-track {
     background: hsl(222.2 84% 4.9%);
     border-radius: 6px;
   }
 
+  html.dark ::-webkit-scrollbar-thumb,
   .dark ::-webkit-scrollbar-thumb {
     background: hsl(217.2 32.6% 35%);
     border-radius: 6px;
     border: 2px solid hsl(222.2 84% 4.9%);
   }
 
+  html.dark ::-webkit-scrollbar-thumb:hover,
   .dark ::-webkit-scrollbar-thumb:hover {
     background: hsl(217.2 32.6% 45%);
   }
 
+  html.dark ::-webkit-scrollbar-thumb:active,
   .dark ::-webkit-scrollbar-thumb:active {
     background: hsl(217.2 32.6% 55%);
   }
 
+  html.dark ::-webkit-scrollbar-corner,
   .dark ::-webkit-scrollbar-corner {
     background: hsl(222.2 84% 4.9%);
   }
 
   /* Light mode scrollbar styles */
+  html ::-webkit-scrollbar,
   ::-webkit-scrollbar {
     width: 12px;
     height: 12px;
   }
 
+  html ::-webkit-scrollbar-track,
   ::-webkit-scrollbar-track {
     background: hsl(0 0% 100%);
     border-radius: 6px;
   }
 
+  html ::-webkit-scrollbar-thumb,
   ::-webkit-scrollbar-thumb {
     background: hsl(214.3 31.8% 75%);
     border-radius: 6px;
     border: 2px solid hsl(0 0% 100%);
   }
 
+  html ::-webkit-scrollbar-thumb:hover,
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(214.3 31.8% 65%);
   }
 
+  html ::-webkit-scrollbar-corner,
   ::-webkit-scrollbar-corner {
     background: hsl(0 0% 100%);
   }
 
   /* Firefox scrollbar styles */
+  html,
   * {
     scrollbar-width: thin;
   }
 
+  html.dark,
+  html.dark *,
+  .dark,
   .dark * {
     scrollbar-color: hsl(217.2 32.6% 35%) hsl(222.2 84% 4.9%);
   }
 
-  *:not(.dark *) {
+  html:not(.dark),
+  html:not(.dark) * {
     scrollbar-color: hsl(214.3 31.8% 75%) hsl(0 0% 100%);
+  }
+
+  /* Ensure body element scrollbar is styled */
+  body {
+    scrollbar-width: thin;
+  }
+
+  html.dark body,
+  .dark body {
+    scrollbar-color: hsl(217.2 32.6% 35%) hsl(222.2 84% 4.9%);
+  }
+
+  html:not(.dark) body {
+    scrollbar-color: hsl(214.3 31.8% 75%) hsl(0 0% 100%);
+  }
+
+  /* Additional body scrollbar styles for Webkit */
+  html.dark body ::-webkit-scrollbar,
+  .dark body ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  html.dark body ::-webkit-scrollbar-track,
+  .dark body ::-webkit-scrollbar-track {
+    background: hsl(222.2 84% 4.9%);
+  }
+
+  html.dark body ::-webkit-scrollbar-thumb,
+  .dark body ::-webkit-scrollbar-thumb {
+    background: hsl(217.2 32.6% 35%);
+    border: 2px solid hsl(222.2 84% 4.9%);
   }
 }
