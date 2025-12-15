@@ -30,6 +30,7 @@ const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   console.log('Another instance is already running. Exiting.')
   app.quit()
+  return // Stop executing subsequent code to prevent port conflicts
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
     console.log('Second instance detected, focusing main window')
@@ -569,7 +570,8 @@ async function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: false,
-      sandbox: false // Disable sandbox to allow preload to access node_modules
+      sandbox: false, // Disable sandbox to allow preload to access node_modules
+      partition: 'persist:petadesk' // Use persistent partition to ensure data persists across port changes
     }
   }
 
