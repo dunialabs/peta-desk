@@ -561,7 +561,7 @@ async function createWindow() {
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
-    skipTaskbar: true,
+    skipTaskbar: false,
     backgroundColor: 'rgba(255, 255, 255, 0.70)',
     backdropFilter: 'blur(2px)',
     show: false,
@@ -581,6 +581,8 @@ async function createWindow() {
     mainConfig.visualEffectState = 'active'
   } else if (process.platform === 'win32') {
     mainConfig.backgroundMaterial = 'acrylic'
+    // Use Windows-specific ico so taskbar/alt-tab shows branded icon
+    mainConfig.icon = path.join(__dirname, 'icon.ico')
   } else if (process.platform === 'linux') {
     mainConfig.type = 'toolbar'
   }
@@ -2181,14 +2183,19 @@ ipcMain.handle('show-settings-menu', async (event, x, y, autoLockTimer) => {
 // These were only used by proxy-manager which has been removed in the integrated architecture
 
 app.whenReady().then(async () => {
-  try {
-    performanceMarks._start = Date.now()
-    markPerformance('App Ready')
-    log('Starting application...')
+    try {
+      performanceMarks._start = Date.now()
+      markPerformance('App Ready')
+      log('Starting application...')
 
-    // Create window and tray first so the UI appears quickly
-    await createWindow()
-    markPerformance('Window created')
+      // Ensure Windows uses branded icon for taskbar/notifications
+      if (process.platform === 'win32') {
+        app.setAppUserModelId('com.kompas.ai.peta')
+      }
+
+      // Create window and tray first so the UI appears quickly
+      await createWindow()
+      markPerformance('Window created')
 
     try {
       createTray()

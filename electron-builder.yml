@@ -83,7 +83,7 @@ win:
       arch:
         - x64
         - ia32
-  icon: electron/icon512.png
+  icon: electron/icon.ico
 
 nsis:
   oneClick: false
