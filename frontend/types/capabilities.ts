@@ -37,7 +37,7 @@ export interface ServerConfigWithEnabled {
   enabled: boolean
   serverName: string
   allowUserInput: boolean  // Allow user-provided configuration
-  authType: number        // Auth type: 1=API Key, 2=OAuth
+  authType: number        // Auth type: 1=API Key, 2=Google Drive 3=Notion 4=Figma
   configured?: boolean     // Whether configured (meaningful only when allowUserInput=true)
   configTemplate?: string  // Config template JSON string (authConfig, credentials, etc.)
   tools: Record<string, ToolConfig>

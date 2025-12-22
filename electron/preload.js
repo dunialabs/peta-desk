@@ -42,13 +42,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadBackup: (filename) =>
     ipcRenderer.invoke('backup:downloadBackup', filename),
 
-  // Google Drive API
+  // Generic OAuth API
+  oauth: {
+    authenticate: (authType, clientId, clientSecret) =>
+      ipcRenderer.invoke('oauth:authenticate', { authType, clientId, clientSecret }),
+    isAuthenticated: (authType) =>
+      ipcRenderer.invoke('oauth:isAuthenticated', authType),
+    logout: (authType) =>
+      ipcRenderer.invoke('oauth:logout', authType)
+  },
+
+  // Google Drive API (backward compatibility - delegates to oauth API)
   googleDrive: {
     authenticate: (clientId, clientSecret) =>
-      ipcRenderer.invoke('googledrive:authenticate', { clientId, clientSecret }),
-    isAuthenticated: () => ipcRenderer.invoke('googledrive:isAuthenticated'),
+      ipcRenderer.invoke('oauth:authenticate', { authType: 2, clientId, clientSecret }),
+    isAuthenticated: () => ipcRenderer.invoke('oauth:isAuthenticated', 2),
     getUserInfo: () => ipcRenderer.invoke('googledrive:getUserInfo'),
-    logout: () => ipcRenderer.invoke('googledrive:logout'),
+    logout: () => ipcRenderer.invoke('oauth:logout', 2),
     uploadBackup: (filename) => ipcRenderer.invoke('googledrive:uploadBackup', filename),
     downloadBackup: (fileId, fileName) => ipcRenderer.invoke('googledrive:downloadBackup', fileId, fileName),
     listBackups: () => ipcRenderer.invoke('googledrive:listBackups'),

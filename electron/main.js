@@ -17,6 +17,7 @@ const biometricAuth = require('./biometric-auth')
 const passwordManager = require('./password-manager')
 const MCPConfigManager = require('./mcp-config-manager')
 const GoogleDriveAuth = require('./google-drive-auth')
+const NotionAuth = require('./notion-auth')
 const socketClient = require('./socket-client')
 
 const args = process.argv.slice(1)
@@ -231,6 +232,7 @@ let mainWindow
 let tray
 let mcpConfigManager = null // MCP config manager
 let googleDriveAuth = null // Google Drive auth manager
+let notionAuth = null // Notion auth manager
 let isConnected = false // connection status
 let isBiometricAuthenticating = false // biometric auth status
 let frontendIndexPath = null
@@ -1233,9 +1235,85 @@ ipcMain.handle('backup:downloadBackup', async (event, filename) => {
   }
 })
 
+// ==================== Generic OAuth API ====================
+
+// Get OAuth provider based on authType
+function getOAuthProvider(authType) {
+  switch (authType) {
+    case 2:
+      if (!googleDriveAuth) {
+        throw new Error('Google Drive Auth not initialized')
+      }
+      return googleDriveAuth
+    case 3:
+      if (!notionAuth) {
+        throw new Error('Notion Auth not initialized')
+      }
+      return notionAuth
+    default:
+      throw new Error(`Unsupported auth type: ${authType}`)
+  }
+}
+
+// Generic OAuth authorization
+ipcMain.handle('oauth:authenticate', async (event, { authType, clientId, clientSecret }) => {
+  try {
+    log(`OAuth authentication started for authType: ${authType}`)
+
+    if (!clientId || !clientSecret) {
+      throw new Error('clientId and clientSecret are required')
+    }
+
+    const provider = getOAuthProvider(authType)
+    const result = await provider.authenticate({
+      clientId,
+      clientSecret,
+      parentWindow: mainWindow
+    })
+
+    log(`OAuth authentication successful for authType: ${authType}`)
+
+    // Show the main window after successful authorization
+    if (result.success && mainWindow) {
+      showMainWindow()
+    }
+
+    return result
+  } catch (error) {
+    log(`OAuth authentication failed for authType ${authType}: ${error.message}`)
+    return { success: false, error: error.message }
+  }
+})
+
+// Check OAuth authorization status
+ipcMain.handle('oauth:isAuthenticated', async (event, authType) => {
+  try {
+    const provider = getOAuthProvider(authType)
+    const isAuth = provider.isAuthenticated()
+    return { success: true, authenticated: isAuth }
+  } catch (error) {
+    log(`Failed to check OAuth auth status for authType ${authType}: ${error.message}`)
+    return { success: false, authenticated: false, error: error.message }
+  }
+})
+
+// Generic OAuth logout
+ipcMain.handle('oauth:logout', async (event, authType) => {
+  try {
+    log(`OAuth logout started for authType: ${authType}`)
+    const provider = getOAuthProvider(authType)
+    await provider.logout()
+    log(`OAuth logout successful for authType: ${authType}`)
+    return { success: true }
+  } catch (error) {
+    log(`OAuth logout failed for authType ${authType}: ${error.message}`)
+    return { success: false, error: error.message }
+  }
+})
+
 // ==================== Google Drive API ====================
 
-// Google Drive authorization
+// Google Drive authorization (backward compatibility - delegates to oauth:authenticate)
 ipcMain.handle('googledrive:authenticate', async (event, { clientId, clientSecret }) => {
   try {
     if (!googleDriveAuth) {
@@ -2217,6 +2295,11 @@ app.whenReady().then(async () => {
         googleDriveAuth = new GoogleDriveAuth()
         log('Google Drive Auth initialized')
         markPerformance('Google Drive Auth initialized')
+
+        // Initialize Notion auth manager
+        notionAuth = new NotionAuth()
+        log('Notion Auth initialized')
+        markPerformance('Notion Auth initialized')
 
         // Set socket connection state callback
         socketClient.setConnectionStatusCallback((connected) => {

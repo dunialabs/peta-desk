@@ -677,10 +677,21 @@ function DashboardContent() {
   }, [globalAutoLockTimer, updateAutoLockTimer, checkGoogleDriveAuth])
 
   // Google Drive authorization handling
-  const handleGoogleDriveAuth = async (
+  // Helper function to get auth type display name
+  const getAuthTypeName = (authType: number): string => {
+    switch (authType) {
+      case 2: return 'Google Drive'
+      case 3: return 'Notion'
+      case 4: return 'Figma'
+      default: return 'OAuth'
+    }
+  }
+
+  const handleOAuthAuth = async (
     gatewayServerId: string,
     mcpServerId?: string,
-    toolId?: string
+    toolId?: string,
+    authType?: number
   ) => {
     try {
       setIsAuthenticating(true)
@@ -702,6 +713,9 @@ function DashboardContent() {
         setAuthenticatingToolId(null)
         return
       }
+
+      // Determine authType from tool if not provided
+      const effectiveAuthType = authType || tool.authType
 
       // Parse configTemplate to get authConfig
       let configTemplateObj
@@ -798,11 +812,11 @@ function DashboardContent() {
         return
       }
 
-      // First perform Google OAuth authorization through Electron
-      // Pass the decrypted clientId and clientSecret
+      // Perform OAuth authorization through Electron
+      // Pass the decrypted clientId and clientSecret with authType
       const authResult = await (
         window as any
-      ).electronAPI.googleDrive.authenticate(clientId, clientSecret)
+      ).electronAPI.oauth.authenticate(effectiveAuthType, clientId, clientSecret)
 
       console.log('🔍 Full auth result:', authResult)
 
@@ -814,17 +828,28 @@ function DashboardContent() {
         console.log('Gateway Server ID:', gatewayServerId)
         console.log('MCP Server ID:', mcpServerId)
 
-        // Assemble authConf dynamically based on credentials definition
+        // Assemble authConf dynamically based on credentials definition and authType
         const authConf = credentials.map((cred: any) => {
           let value = ''
 
-          // Get value from selected config or from auth result
-          if (cred.key === 'YOUR_REFRESH_TOKEN') {
-            // refresh_token comes from OAuth result
-            value = authResult.tokenInfo.refresh_token || ''
+          if (effectiveAuthType === 2) {
+            // Google Drive: only refresh_token from OAuth result
+            if (cred.key === 'YOUR_REFRESH_TOKEN') {
+              value = authResult.tokenInfo.refresh_token || ''
+            } else {
+              value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
+            }
+          } else if (effectiveAuthType === 3) {
+            // Notion: both access_token and refresh_token from OAuth result
+            if (cred.key === 'YOUR_ACCESS_TOKEN') {
+              value = authResult.tokenInfo.access_token || ''
+            } else if (cred.key === 'YOUR_REFRESH_TOKEN') {
+              value = authResult.tokenInfo.refresh_token || ''
+            } else {
+              value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
+            }
           } else {
-            // Other values come from selected authConfig (based on allowUserInput)
-            // selectedConfig is an object like {ClientId: '...', ClientSecret: '...'}
+            // Default fallback
             value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
           }
 
@@ -896,7 +921,7 @@ function DashboardContent() {
       if (result.success) {
         // Print complete authorization information in frontend console
         console.log('====================================')
-        console.log('✅ Google Drive Authorization Successful!')
+        console.log(`✅ ${getAuthTypeName(effectiveAuthType)} Authorization Successful!`)
         console.log('====================================')
 
         if (result.userInfo) {
@@ -936,7 +961,7 @@ function DashboardContent() {
 
         console.log('====================================')
 
-        toast.success('Google Drive authorization successful!')
+        toast.success(`${getAuthTypeName(effectiveAuthType)} authorization successful!`)
         await checkGoogleDriveAuth()
         // Clear auth status on success
         if (toolId) {
@@ -949,8 +974,8 @@ function DashboardContent() {
         }
       }
     } catch (error) {
-      console.error('Google Drive auth error:', error)
-      toast.error('Failed to authorize Google Drive')
+      console.error('OAuth auth error:', error)
+      toast.error(`Failed to authorize ${getAuthTypeName(effectiveAuthType || 0)}`)
       if (toolId) {
         setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
       }
@@ -961,13 +986,14 @@ function DashboardContent() {
   }
 
   // Show disconnect authorization confirmation dialog
-  const handleGoogleDriveLogout = (
+  const handleOAuthLogout = (
     gatewayServerId: string,
-    mcpServerId?: string
+    mcpServerId?: string,
+    authType?: number
   ) => {
-    // Store gatewayServerId for confirmDisconnect
+    // Store gatewayServerId, mcpServerId, and authType for confirmDisconnect
     setDisconnectTargetServerId(
-      mcpServerId ? `${gatewayServerId}:${mcpServerId}` : undefined
+      mcpServerId ? `${gatewayServerId}:${mcpServerId}:${authType}` : undefined
     )
     setShowDisconnectDialog(true)
   }
@@ -977,13 +1003,17 @@ function DashboardContent() {
     try {
       setIsAuthenticating(true) // Use the same loading state
 
-      // First clear local token through Electron
-      const result = await (window as any).electronAPI.googleDrive.logout()
+      if (!disconnectTargetServerId) return
 
-      if (result.success && disconnectTargetServerId) {
-        // Parse gatewayServerId and mcpServerId
-        const [gatewayServerId, mcpServerId] =
-          disconnectTargetServerId.split(':')
+      // Parse gatewayServerId, mcpServerId, and authType
+      const [gatewayServerId, mcpServerId, authTypeStr] =
+        disconnectTargetServerId.split(':')
+      const authType = parseInt(authTypeStr, 10)
+
+      // Clear local token through Electron
+      const result = await (window as any).electronAPI.oauth.logout(authType)
+
+      if (result.success) {
 
         // After successful logout, notify core to unconfigure via socket
         console.log('====================================')
@@ -1010,16 +1040,18 @@ function DashboardContent() {
       }
 
       if (result.success) {
-        toast.success('Disconnected from Google Drive')
-        setGoogleDriveAuth({ authenticated: false })
+        toast.success(`Disconnected from ${getAuthTypeName(authType)}`)
+        if (authType === 2) {
+          setGoogleDriveAuth({ authenticated: false })
+        }
         // Refresh data to update configured status
         await loadAllServersData()
       } else {
         toast.error(`Disconnect failed: ${result.error}`)
       }
     } catch (error) {
-      console.error('Google Drive disconnect error:', error)
-      toast.error('Failed to disconnect from Google Drive')
+      console.error('OAuth disconnect error:', error)
+      toast.error('Failed to disconnect')
     } finally {
       setIsAuthenticating(false)
       setAuthenticatingToolId(null)
@@ -1083,13 +1115,13 @@ function DashboardContent() {
       t.serverId ? t.serverId === toolServerId : t.name === toolServerId
     )
 
-    // If allowUserInput=true and authType=2 (OAuth), need to check authorization status
-    if (tool && tool.allowUserInput && tool.authType === 2) {
+    // If allowUserInput=true and authType in [2, 3, 4] (OAuth), need to check authorization status
+    if (tool && tool.allowUserInput && [2, 3, 4].includes(tool.authType)) {
       // If not authorized, clicking should trigger the authorization flow regardless of current check state
       if (!tool.configured) {
         console.log(`   Tool requires authorization, triggering auth flow...`)
         const toolId = `${gatewayServerId}-${clientId}-${toolServerId}`
-        handleGoogleDriveAuth(gatewayServerId, tool.serverId, toolId)
+        handleOAuthAuth(gatewayServerId, tool.serverId, toolId, tool.authType)
         return
       }
     }
@@ -1764,7 +1796,7 @@ function DashboardContent() {
                                           type="checkbox"
                                           checked={
                                             tool.allowUserInput &&
-                                            tool.authType === 2
+                                            [2, 3, 4].includes(tool.authType)
                                               ? tool.enabled && tool.configured
                                               : tool.enabled
                                           }
@@ -1785,7 +1817,7 @@ function DashboardContent() {
 
                                       {/* Auth status indicators for OAuth tools */}
                                       {tool.allowUserInput &&
-                                        tool.authType === 2 && (
+                                        [2, 3, 4].includes(tool.authType) && (
                                           <>
                                             {/* Connecting status */}
                                             {authStatus[toolId] ===
@@ -1819,17 +1851,18 @@ function DashboardContent() {
                                         )}
                                     </div>
 
-                                    {/* Disconnect icon - only shown when allowUserInput=true and authType=2 and authorized */}
+                                    {/* Disconnect icon - only shown when allowUserInput=true and authType in [2,3,4] and authorized */}
                                     {tool.allowUserInput &&
-                                      tool.authType === 2 &&
+                                      [2, 3, 4].includes(tool.authType) &&
                                       tool.configured && (
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <button
                                               onClick={() =>
-                                                handleGoogleDriveLogout(
+                                                handleOAuthLogout(
                                                   gatewayServerId,
-                                                  tool.serverId
+                                                  tool.serverId,
+                                                  tool.authType
                                                 )
                                               }
                                               onMouseEnter={() =>
