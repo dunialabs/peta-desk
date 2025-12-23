@@ -149,6 +149,18 @@ class NotionAuth {
         authWindow.focus()
       })
 
+      // Handle window blur to allow popup windows (e.g., Google OAuth) to appear on top
+      authWindow.on('blur', () => {
+        console.log('Auth window lost focus, disabling alwaysOnTop')
+        authWindow.setAlwaysOnTop(false)
+      })
+
+      // Re-enable alwaysOnTop when window regains focus
+      authWindow.on('focus', () => {
+        console.log('Auth window gained focus, enabling alwaysOnTop')
+        authWindow.setAlwaysOnTop(true)
+      })
+
       // Listen for page loads
       authWindow.webContents.on('did-start-loading', () => {
         console.log('Auth window started loading')
