@@ -184,15 +184,22 @@ class FigmaAuth {
       })
 
       // Handle window blur to allow popup windows (e.g., Google OAuth) to appear on top
+      let hasBlurred = false
       authWindow.on('blur', () => {
         console.log('Auth window lost focus, disabling alwaysOnTop')
+        hasBlurred = true
         authWindow.setAlwaysOnTop(false)
       })
 
-      // Re-enable alwaysOnTop when window regains focus
+      // On Windows, don't re-enable alwaysOnTop after blur to avoid covering popup windows
+      // On macOS, it's safe to re-enable as window management works differently
       authWindow.on('focus', () => {
-        console.log('Auth window gained focus, enabling alwaysOnTop')
-        authWindow.setAlwaysOnTop(true)
+        if (process.platform === 'darwin' && hasBlurred) {
+          console.log('Auth window gained focus (macOS), enabling alwaysOnTop')
+          authWindow.setAlwaysOnTop(true)
+        } else if (hasBlurred) {
+          console.log('Auth window gained focus (Windows/Linux), keeping alwaysOnTop disabled')
+        }
       })
 
       // Listen for page loads
