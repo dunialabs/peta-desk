@@ -18,6 +18,7 @@ const passwordManager = require('./password-manager')
 const MCPConfigManager = require('./mcp-config-manager')
 const GoogleDriveAuth = require('./google-drive-auth')
 const NotionAuth = require('./notion-auth')
+const FigmaAuth = require('./figma-auth')
 const socketClient = require('./socket-client')
 
 const args = process.argv.slice(1)
@@ -233,6 +234,7 @@ let tray
 let mcpConfigManager = null // MCP config manager
 let googleDriveAuth = null // Google Drive auth manager
 let notionAuth = null // Notion auth manager
+let figmaAuth = null // Figma auth manager
 let isConnected = false // connection status
 let isBiometricAuthenticating = false // biometric auth status
 let frontendIndexPath = null
@@ -1250,6 +1252,11 @@ function getOAuthProvider(authType) {
         throw new Error('Notion Auth not initialized')
       }
       return notionAuth
+    case 4:
+      if (!figmaAuth) {
+        throw new Error('Figma Auth not initialized')
+      }
+      return figmaAuth
     default:
       throw new Error(`Unsupported auth type: ${authType}`)
   }
@@ -2300,6 +2307,11 @@ app.whenReady().then(async () => {
         notionAuth = new NotionAuth()
         log('Notion Auth initialized')
         markPerformance('Notion Auth initialized')
+
+        // Initialize Figma auth manager
+        figmaAuth = new FigmaAuth()
+        log('Figma Auth initialized')
+        markPerformance('Figma Auth initialized')
 
         // Set socket connection state callback
         socketClient.setConnectionStatusCallback((connected) => {

@@ -848,6 +848,15 @@ function DashboardContent() {
             } else {
               value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
             }
+          } else if (effectiveAuthType === 4) {
+            // Figma: both access_token and refresh_token from OAuth result (same as Notion)
+            if (cred.key === 'YOUR_ACCESS_TOKEN') {
+              value = authResult.tokenInfo.access_token || ''
+            } else if (cred.key === 'YOUR_REFRESH_TOKEN') {
+              value = authResult.tokenInfo.refresh_token || ''
+            } else {
+              value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
+            }
           } else {
             // Default fallback
             value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
