@@ -47,6 +47,7 @@ extraResources:
 
 asar: true
 compression: normal
+afterPack: electron/after-pack.js
 
 mac:
   category: public.app-category.developer-tools
