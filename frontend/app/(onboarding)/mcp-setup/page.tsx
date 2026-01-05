@@ -45,6 +45,21 @@ function MCPSetupContent() {
     return isIP ? `http://${trimmed}` : `https://${trimmed}`
   }
 
+  /**
+   * Normalize then strip to origin (protocol + host + port).
+   * Example: http://localhost:3002/mcp -> http://localhost:3002
+   */
+  const normalizeToOrigin = (address: string): string => {
+    const normalized = normalizeServerAddress(address)
+
+    try {
+      const url = new URL(normalized)
+      return url.origin
+    } catch {
+      return normalized
+    }
+  }
+
   // Check if form is valid (required fields filled)
   // In edit mode, only server name is required
   // In add mode, server name will come from socket server_info event
@@ -102,7 +117,7 @@ function MCPSetupContent() {
     }
 
     // Auto-add protocol
-    const normalizedAddress = normalizeServerAddress(serverAddress)
+    const normalizedAddress = normalizeToOrigin(serverAddress)
     if (normalizedAddress !== serverAddress) {
       console.log('[MCP Setup] Auto-normalized server address:', serverAddress, '->', normalizedAddress)
       setServerAddress(normalizedAddress)
@@ -175,7 +190,7 @@ function MCPSetupContent() {
     }
 
     // Auto-add protocol
-    const normalizedAddress = normalizeServerAddress(serverAddress)
+    const normalizedAddress = normalizeToOrigin(serverAddress)
     if (normalizedAddress !== serverAddress) {
       console.log('[MCP Setup] Auto-normalized server address:', serverAddress, '->', normalizedAddress)
       setServerAddress(normalizedAddress)
