@@ -56,12 +56,6 @@ mac:
   identity: "ByteBridge Co., Ltd. (9WPQQ8Q9RQ)"
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
-  # 移除未使用的权限描述
-  extendInfo:
-    NSBluetoothAlwaysUsageDescription: null
-    NSBluetoothPeripheralUsageDescription: null
-    NSCameraUsageDescription: null
-    NSMicrophoneUsageDescription: null
   target:
     - target: dir
       arch:
