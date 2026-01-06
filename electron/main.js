@@ -2035,7 +2035,8 @@ ipcMain.handle(
           cursor: '/Applications/Cursor.app',
           claude: '/Applications/Claude.app',
           vscode: '/Applications/Visual Studio Code.app',
-          windsurf: '/Applications/Windsurf.app'
+          windsurf: '/Applications/Windsurf.app',
+          antigravity: '/Applications/Antigravity.app'
         }
 
         for (const [app, appPath] of Object.entries(appPaths)) {
@@ -2055,11 +2056,31 @@ ipcMain.handle(
           windsurf:
             'C:\\Users\\' +
             process.env.USERNAME +
-            '\\AppData\\Local\\Programs\\windsurf\\Windsurf.exe'
+            '\\AppData\\Local\\Programs\\windsurf\\Windsurf.exe',
+          antigravity:
+            'C:\\Users\\' +
+            process.env.USERNAME +
+            '\\AppData\\Local\\Programs\\antigravity\\Antigravity.exe'
         }
 
         for (const [app, appPath] of Object.entries(appPaths)) {
           installedApps[app] = fs.existsSync(appPath)
+        }
+      } else if (process.platform === 'linux') {
+        // Linux: use 'which' command to detect apps
+        const { exec } = require('child_process')
+        const { promisify } = require('util')
+        const execAsync = promisify(exec)
+
+        const appsToCheck = ['cursor', 'code', 'windsurf', 'antigravity']
+
+        for (const app of appsToCheck) {
+          try {
+            const { stdout } = await execAsync(`which ${app}`)
+            installedApps[app === 'code' ? 'vscode' : app] = stdout.trim() ? true : false
+          } catch {
+            installedApps[app === 'code' ? 'vscode' : app] = false
+          }
         }
       }
 
@@ -2110,7 +2131,8 @@ ipcMain.handle(
         // claude: 'Config to Claude',
         cursor: 'Add to Cursor',
         vscode: 'Add to VS Code',
-        windsurf: 'Add to Windsurf'
+        windsurf: 'Add to Windsurf',
+        antigravity: 'Add to Antigravity'
       }
 
       for (const [app, label] of Object.entries(appLabels)) {

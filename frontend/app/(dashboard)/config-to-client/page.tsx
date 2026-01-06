@@ -22,7 +22,8 @@ function ConfigToClientContent() {
     claude: 'Claude',
     cursor: 'Cursor',
     vscode: 'VS Code',
-    windsurf: 'Windsurf'
+    windsurf: 'Windsurf',
+    antigravity: 'Antigravity'
   }
 
   // Check if we have a decrypted password from unlock page
@@ -132,8 +133,14 @@ function ConfigToClientContent() {
 
         // Build MCP server configuration
         const mcpServerConfig: any = {
-          type: 'http',
-          url: url
+          type: 'http'
+        }
+
+        // Antigravity uses 'serverUrl', others use 'url'
+        if (appName === 'antigravity') {
+          mcpServerConfig.serverUrl = url
+        } else {
+          mcpServerConfig.url = url
         }
 
         if (token && token.trim() !== '') {

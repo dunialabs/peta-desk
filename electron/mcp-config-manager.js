@@ -21,6 +21,7 @@ class MCPConfigManager {
         // Windsurf and VSCode may follow similar paths (to be confirmed)
         paths.windsurf = path.join(this.homeDir, '.windsurf', 'mcp', 'mcp-config.json')
         paths.vscode = path.join(this.homeDir, 'Library', 'Application Support', 'Code', 'User', 'globalStorage', 'mcp', 'config.json')
+        paths.antigravity = path.join(this.homeDir, '.gemini', 'antigravity', 'mcp_config.json')
         break
         
       case 'win32': // Windows
@@ -29,6 +30,7 @@ class MCPConfigManager {
         paths.cursor = path.join(this.homeDir, '.cursor', 'mcp.json')
         paths.windsurf = path.join(this.homeDir, '.windsurf', 'mcp', 'mcp-config.json')
         paths.vscode = path.join(appData, 'Code', 'User', 'globalStorage', 'mcp', 'config.json')
+        paths.antigravity = path.join(this.homeDir, '.gemini', 'antigravity', 'mcp_config.json')
         break
         
       case 'linux': // Linux
@@ -37,6 +39,7 @@ class MCPConfigManager {
         paths.cursor = path.join(this.homeDir, '.cursor', 'mcp.json')
         paths.windsurf = path.join(this.homeDir, '.windsurf', 'mcp', 'mcp-config.json')
         paths.vscode = path.join(configDir, 'Code', 'User', 'globalStorage', 'mcp', 'config.json')
+        paths.antigravity = path.join(this.homeDir, '.gemini', 'antigravity', 'mcp_config.json')
         break
         
       default:
@@ -45,6 +48,7 @@ class MCPConfigManager {
         paths.cursor = path.join(this.homeDir, '.cursor', 'mcp.json')
         paths.windsurf = path.join(this.homeDir, '.windsurf', 'mcp', 'mcp-config.json')
         paths.vscode = path.join(this.homeDir, '.vscode', 'mcp', 'config.json')
+        paths.antigravity = path.join(this.homeDir, '.gemini', 'antigravity', 'mcp_config.json')
         break
     }
     
@@ -175,10 +179,16 @@ class MCPConfigManager {
 
     // Support multiple config shapes
     if (config.url) {
-      // URL field present
+      // URL field present (Claude, Cursor, VSCode, Windsurf)
       if (!config.url.endsWith('/mcp')) {
         config.url = config.url.replace(/\/$/, '') + '/mcp'
         console.log(`📝 Auto-appended /mcp to config URL: ${config.url}`)
+      }
+    } else if (config.serverUrl) {
+      // serverUrl field present (Antigravity)
+      if (!config.serverUrl.endsWith('/mcp')) {
+        config.serverUrl = config.serverUrl.replace(/\/$/, '') + '/mcp'
+        console.log(`📝 Auto-appended /mcp to config serverUrl: ${config.serverUrl}`)
       }
     } else if (config.command === 'npx' && config.args) {
       // npx command: locate the --transport-url argument

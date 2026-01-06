@@ -403,7 +403,7 @@ function DashboardContent() {
         }
 
         const serverName = server.serverName || 'peta-mcp-desk'
-        const appNames = ['claude', 'cursor', 'vscode', 'windsurf']
+        const appNames = ['claude', 'cursor', 'vscode', 'windsurf', 'antigravity']
         const actualConfigured: string[] = []
 
         // Check each app's config file
