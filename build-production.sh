@@ -31,8 +31,19 @@ echo "  Universal build + notarization workflow"
 echo "========================================="
 echo ""
 
+# Step 0: Clean dist directory
+log_step "Step 0/7: Clean dist directory..."
+if [ -d "dist" ]; then
+    rm -rf dist/*
+    log_success "dist directory cleaned"
+else
+    mkdir -p dist
+    log_success "dist directory created"
+fi
+echo ""
+
 # Step 1: build the frontend
-log_step "Step 1/6: Build Next.js frontend..."
+log_step "Step 1/7: Build Next.js frontend..."
 npm run build:frontend
 if [ $? -eq 0 ]; then
     log_success "Frontend build finished: frontend/out/"
@@ -43,7 +54,7 @@ fi
 echo ""
 
 # Step 2: build dual-architecture .app
-log_step "Step 2/6: Build universal .app (arm64 + x64)..."
+log_step "Step 2/7: Build universal .app (arm64 + x64)..."
 log_warning "Using the dir target only produces .app files, saving 10-40 minutes."
 log_warning "Parallel build: arm64 and x64 run together to save ~40-50% time."
 # Set to false to skip code signing (testing only)
@@ -61,6 +72,10 @@ log_success "Parallel build for arm64 and x64 completed"
 # Rename x64 output directory (electron-builder defaults to mac/ instead of mac-x64/)
 if [ -d "dist/mac" ]; then
     log_step "  → Renaming x64 output directory..."
+    # Remove existing mac-x64 directory if it exists
+    if [ -d "dist/mac-x64" ]; then
+        rm -rf "dist/mac-x64"
+    fi
     mv "dist/mac" "dist/mac-x64"
     log_success "x64 output directory renamed to mac-x64/"
 fi
@@ -69,7 +84,7 @@ log_success "Universal build complete"
 echo ""
 
 # Step 3: verify .app files exist
-log_step "Step 3/6: Verify .app files..."
+log_step "Step 3/7: Verify .app files..."
 if [ -d "dist/mac-arm64/Peta Desk.app" ]; then
     ARM64_SIZE=$(du -sh "dist/mac-arm64/Peta Desk.app" | cut -f1)
     log_success "arm64 .app found (size: $ARM64_SIZE)"
@@ -88,7 +103,7 @@ fi
 echo ""
 
 # Step 4: notarize arm64
-log_step "Step 4/6: Notarize arm64 build..."
+log_step "Step 4/7: Notarize arm64 build..."
 log_warning "Notarization can take 5-15 minutes, please wait..."
 ./build-notarize.sh arm64
 if [ $? -eq 0 ]; then
@@ -100,7 +115,7 @@ fi
 echo ""
 
 # Step 5: notarize x64
-log_step "Step 5/6: Notarize x64 build..."
+log_step "Step 5/7: Notarize x64 build..."
 log_warning "Notarization can take 5-15 minutes, please wait..."
 ./build-notarize.sh x64
 if [ $? -eq 0 ]; then
@@ -112,7 +127,7 @@ fi
 echo ""
 
 # Step 6: final report
-log_step "Step 6/6: Final report..."
+log_step "Step 6/7: Final report..."
 echo ""
 echo "========================================="
 echo "  Build and notarization complete!"
