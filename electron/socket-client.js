@@ -596,7 +596,7 @@ class SocketClient {
    * @param {Array} authConf - authorization config array
    * @returns {Promise<Object>} response payload
    */
-  async configureServer(serverId, authConf) {
+  async configureServer(serverId, authConf, restfulApiAuth, remoteAuth) {
     if (!this.socket || !this.socket.connected) {
       throw new Error('Socket not connected')
     }
@@ -636,8 +636,13 @@ class SocketClient {
 
       this.socket.emit('configure_server', {
         requestId,
-        serverId,
-        authConf
+        data: {
+          serverId,
+          authConf,
+          restfulApiAuth,
+          remoteAuth
+        },
+        timestamp: Date.now()
       })
     })
   }

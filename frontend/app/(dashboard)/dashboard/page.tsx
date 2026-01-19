@@ -34,6 +34,8 @@ import type {
 import { toast } from 'sonner'
 import { DisconnectIcon } from '@/components/icons/disconnect-icon'
 import { LoadingSpinner } from '@/components/icons/loading-spinner'
+import { ServerAuthType, ServerCategory } from '@/types/capabilities'
+import { headers } from 'next/headers'
 
 const timeOptions = [
   { label: '5 min', value: 5 },
@@ -275,6 +277,76 @@ function DashboardContent() {
         })
     }
   }, [])
+
+  // Handle configuration returns from RestApi and CustomRemote pages
+  useEffect(() => {
+    const pendingConfigStr = sessionStorage.getItem('pendingConfig')
+    if (pendingConfigStr) {
+      console.log('📝 Found pending configuration, processing...')
+      sessionStorage.removeItem('pendingConfig')
+
+      try {
+        const config = JSON.parse(pendingConfigStr)
+        const { serverId, mcpServerId, toolId, restfulApiAuth, remoteAuth } =
+          config
+
+        // Call configureServer with the appropriate auth data
+        ;(async () => {
+          try {
+            setIsAuthenticating(true)
+            if (toolId) {
+              setAuthenticatingToolId(toolId)
+              setAuthStatus((prev) => ({ ...prev, [toolId]: 'connecting' }))
+            }
+
+            console.log('🚀 Calling configureServer with pending config:')
+            console.log('  serverId:', serverId)
+            console.log('  mcpServerId:', mcpServerId)
+            console.log('  restfulApiAuth:', restfulApiAuth ? 'present' : 'undefined')
+            console.log('  remoteAuth:', remoteAuth ? 'present' : 'undefined')
+
+            const configResult = await configureServer(
+              serverId,
+              mcpServerId,
+              undefined, // authConf (for Template only)
+              restfulApiAuth,
+              remoteAuth
+            )
+
+            if (configResult.success) {
+              toast.success('Configuration saved successfully')
+              console.log('✅ Configuration successful:', configResult.data)
+              if (toolId) {
+                setAuthStatus((prev) => ({ ...prev, [toolId]: null }))
+              }
+              // Reload data to reflect changes
+              loadAllServersData()
+            } else {
+              toast.error(
+                `Failed to configure server: ${configResult.error}`
+              )
+              console.error('❌ Configuration failed:', configResult.error)
+              if (toolId) {
+                setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
+              }
+            }
+          } catch (error) {
+            console.error('❌ Configuration error:', error)
+            toast.error('Failed to configure server')
+            if (toolId) {
+              setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
+            }
+          } finally {
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+          }
+        })()
+      } catch (error) {
+        console.error('Failed to parse pending config:', error)
+        toast.error('Failed to process configuration')
+      }
+    }
+  }, [configureServer, loadAllServersData])
 
   // Handle reconnect for failed servers
   const handleReconnect = useCallback(
@@ -691,7 +763,7 @@ function DashboardContent() {
     gatewayServerId: string,
     mcpServerId?: string,
     toolId?: string,
-    authType?: number
+    authType?: ServerAuthType
   ) => {
     try {
       setIsAuthenticating(true)
@@ -706,7 +778,7 @@ function DashboardContent() {
         .flatMap((c) => c.tools)
         .find((t) => t.serverId === mcpServerId)
 
-      if (!tool || !tool.configTemplate) {
+      if (!tool || !tool.configTemplate || !tool.allowUserInput) {
         console.error('Tool configTemplate not found')
         setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
         setIsAuthenticating(false)
@@ -715,7 +787,7 @@ function DashboardContent() {
       }
 
       // Determine authType from tool if not provided
-      const effectiveAuthType = authType || tool.authType
+      const effectiveAuthType = authType ?? tool.authType
 
       // Parse configTemplate to get authConfig
       let configTemplateObj
@@ -729,258 +801,231 @@ function DashboardContent() {
         return
       }
 
-      const authConfigEncrypted = configTemplateObj.authConfig
-      if (!authConfigEncrypted) {
-        console.error('authConfig not found in configTemplate')
-        setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-        setIsAuthenticating(false)
-        setAuthenticatingToolId(null)
-        return
-      }
+      // Declare auth variables for different category types
+      let authConf: Array<{ key: string; value: string; dataType: number }> | undefined
+      let restfulApiAuth: any | undefined
+      let remoteAuth: { params: Record<string, any>; headers: Record<string, any> } | undefined
 
-      // Decrypt authConfig to get credentials
-      const { decryptAuthConfig, getConfigValue } = await import(
-        '@/lib/aes-gcm-decrypt'
-      )
-      const decryptedConfig = await decryptAuthConfig(authConfigEncrypted)
-
-      if (!decryptedConfig) {
-        console.error('Failed to decrypt authConfig')
-        setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-        setIsAuthenticating(false)
-        setAuthenticatingToolId(null)
-        return
-      }
-
-      console.log('✅ Decrypted authConfig successfully')
-      console.log('  Decrypted config (full array):', decryptedConfig)
-
-      // Select the correct config based on allowUserInput
-      // Index 0: System default config
-      // Index 1: User custom config (when allowUserInput=true)
-      const configIndex = tool.allowUserInput ? 1 : 0
-
-      if (!Array.isArray(decryptedConfig) || decryptedConfig.length <= configIndex) {
-        console.error(`Config at index ${configIndex} not found in decrypted authConfig`)
-        setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-        setIsAuthenticating(false)
-        setAuthenticatingToolId(null)
-        return
-      }
-
-      const selectedConfig = decryptedConfig[configIndex]
-      console.log(`  Using config at index ${configIndex} (allowUserInput=${tool.allowUserInput}):`, selectedConfig)
-
-      // Get credentials definition from configTemplate
-      const credentials = configTemplateObj.credentials || []
-      console.log('  Credentials definition:', credentials)
-
-      // Extract clientId and clientSecret based on credentials definition
-      const clientIdCred = credentials.find(
-        (c: any) => c.key === 'YOUR_CLIENT_ID'
-      )
-      const clientSecretCred = credentials.find(
-        (c: any) => c.key === 'YOUR_CLIENT_SECRET'
-      )
-
-      if (!clientIdCred || !clientSecretCred) {
-        console.error(
-          'Client ID or Client Secret credential not defined in configTemplate'
-        )
-        setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-        setIsAuthenticating(false)
-        setAuthenticatingToolId(null)
-        return
-      }
-
-      // selectedConfig is an object like {ClientId: '...', ClientSecret: '...'}
-      // We need to extract values using the credential names
-      const clientId = selectedConfig[clientIdCred.name] || selectedConfig[clientIdCred.key]
-      const clientSecret = selectedConfig[clientSecretCred.name] || selectedConfig[clientSecretCred.key]
-      console.log('  clientId:', clientId)
-      console.log('  clientSecret:', clientSecret ? '***' : 'missing')
-
-      if (!clientId || !clientSecret) {
-        console.error(
-          'clientId or clientSecret not found in selected config',
-          'Available keys:',
-          Object.keys(selectedConfig)
-        )
-        setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-        setIsAuthenticating(false)
-        setAuthenticatingToolId(null)
-        return
-      }
-
-      // Perform OAuth authorization through Electron
-      // Pass the decrypted clientId and clientSecret with authType
-      const authResult = await (
-        window as any
-      ).electronAPI.oauth.authenticate(effectiveAuthType, clientId, clientSecret)
-
-      console.log('🔍 Full auth result:', authResult)
-
-      if (authResult.success && mcpServerId && gatewayServerId) {
-        // After successful authorization, notify core via socket
-        console.log('====================================')
-        console.log('📤 Sending to Core (configure_server):')
-        console.log('====================================')
-        console.log('Gateway Server ID:', gatewayServerId)
-        console.log('MCP Server ID:', mcpServerId)
-
-        // Assemble authConf dynamically based on credentials definition and authType
-        const authConf = credentials.map((cred: any) => {
-          let value = ''
-
-          if (effectiveAuthType === 2) {
-            // Google Drive: only refresh_token from OAuth result
-            if (cred.key === 'YOUR_REFRESH_TOKEN') {
-              value = authResult.tokenInfo.refresh_token || ''
-            } else {
-              value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
-            }
-          } else if (effectiveAuthType === 3) {
-            // Notion: both access_token and refresh_token from OAuth result
-            if (cred.key === 'YOUR_ACCESS_TOKEN') {
-              value = authResult.tokenInfo.access_token || ''
-            } else if (cred.key === 'YOUR_REFRESH_TOKEN') {
-              value = authResult.tokenInfo.refresh_token || ''
-            } else {
-              value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
-            }
-          } else if (effectiveAuthType === 4) {
-            // Figma: both access_token and refresh_token from OAuth result (same as Notion)
-            if (cred.key === 'YOUR_ACCESS_TOKEN') {
-              value = authResult.tokenInfo.access_token || ''
-            } else if (cred.key === 'YOUR_REFRESH_TOKEN') {
-              value = authResult.tokenInfo.refresh_token || ''
-            } else {
-              value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
-            }
-          } else {
-            // Default fallback
-            value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
-          }
-
-          return {
-            key: cred.key,
-            value: value,
-            dataType: cred.dataType || 1
-          }
-        })
-
-        console.log('\nAuth Configuration:')
-        authConf.forEach((conf, index) => {
-          console.log(`\n[${index + 1}] ${conf.key}`)
-          console.log(`    Value: ${conf.value}`)
-          console.log(`    Data Type: ${conf.dataType}`)
-          console.log(`    Type of value:`, typeof conf.value)
-          console.log(`    Type of dataType:`, typeof conf.dataType)
-        })
-        console.log('\nAuthConf Array:')
-        console.log(JSON.stringify(authConf, null, 2))
-        console.log('====================================')
-
-        // Send configuration via socket
-        console.log('🚀 Calling configureServer with:')
-        console.log(
-          '  gatewayServerId:',
-          gatewayServerId,
-          '(type:',
-          typeof gatewayServerId,
-          ')'
-        )
-        console.log(
-          '  mcpServerId:',
-          mcpServerId,
-          '(type:',
-          typeof mcpServerId,
-          ')'
-        )
-        console.log(
-          '  authConf:',
-          authConf,
-          '(type:',
-          typeof authConf,
-          ', isArray:',
-          Array.isArray(authConf),
-          ')'
-        )
-
-        const configResult = await configureServer(
-          gatewayServerId,
-          mcpServerId,
-          authConf
-        )
-
-        if (!configResult.success) {
-          toast.error(`Failed to configure server: ${configResult.error}`)
-          if (toolId) {
-            setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
-          }
+      switch (tool.category) {
+        case ServerCategory.RestApi: {
+          // Navigate to RestApi configuration page
+          const configTemplateEncoded = encodeURIComponent(
+            tool.configTemplate || '{}'
+          )
+          router.push(
+            `/configure-restapi?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&configTemplate=${configTemplateEncoded}&toolId=${toolId}`
+          )
           setIsAuthenticating(false)
           setAuthenticatingToolId(null)
           return
         }
-
-        console.log('✅ Core notified successfully:', configResult.data)
-      }
-
-      const result = authResult
-      if (result.success) {
-        // Print complete authorization information in frontend console
-        console.log('====================================')
-        console.log(`✅ ${getAuthTypeName(effectiveAuthType)} Authorization Successful!`)
-        console.log('====================================')
-
-        if (result.userInfo) {
-          console.log('👤 User Information:')
-          console.log('   📧 Email:', result.userInfo.email)
-          console.log('   👤 Name:', result.userInfo.name || 'N/A')
-          console.log('   🖼️  Picture:', result.userInfo.picture || 'N/A')
-          console.log('   🆔 User ID:', result.userInfo.id || 'N/A')
-          console.log('')
-        }
-
-        if (result.tokenInfo) {
-          console.log('🔐 Token Information:')
-          console.log('   - Token Type:', result.tokenInfo.token_type)
-          console.log('   - Scope:', result.tokenInfo.scope)
-          console.log('   - Expires At:', result.tokenInfo.expires_at)
-          console.log(
-            '   - Has Refresh Token:',
-            result.tokenInfo.has_refresh_token ? '✓ Yes' : '✗ No'
+        case ServerCategory.CustomRemote: {
+          // Navigate to CustomRemote configuration page
+          const configTemplateEncoded = encodeURIComponent(
+            tool.configTemplate || '{}'
           )
-          console.log('')
-          console.log('🔧 Debug Information (Development Only):')
-          console.log('   - Access Token:', result.tokenInfo.access_token)
-          console.log('   - Refresh Token:', result.tokenInfo.refresh_token)
-          console.log('')
+          router.push(
+            `/configure-remote?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&configTemplate=${configTemplateEncoded}&toolId=${toolId}`
+          )
+          setIsAuthenticating(false)
+          setAuthenticatingToolId(null)
+          return
         }
+        case ServerCategory.Template:
+          // Template server with ApiKey authType is not supported
+          if (effectiveAuthType === ServerAuthType.ApiKey) {
+            console.error('Tool category is Template and authType is ApiKey, not supported')
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+            return
+          }
 
-        if (result.storage_path) {
-          console.log('💾 Storage Path:', result.storage_path)
-          console.log('')
-        }
+          // Template-specific OAuth flow
+          const authConfigEncrypted = configTemplateObj.authConfig
+          if (!authConfigEncrypted) {
+            console.error('authConfig not found in configTemplate')
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+            return
+          }
 
-        if (result.tokenInfo?.full_tokens) {
-          console.log('📝 Full Token Object:')
-          console.log(result.tokenInfo.full_tokens)
-        }
+          // Decrypt authConfig to get credentials
+          const { decryptAuthConfig, getConfigValue } = await import(
+            '@/lib/aes-gcm-decrypt'
+          )
+          const decryptedConfig = await decryptAuthConfig(authConfigEncrypted)
 
-        console.log('====================================')
+          if (!decryptedConfig) {
+            console.error('Failed to decrypt authConfig')
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+            return
+          }
 
-        toast.success(`${getAuthTypeName(effectiveAuthType)} authorization successful!`)
-        await checkGoogleDriveAuth()
-        // Clear auth status on success
-        if (toolId) {
-          setAuthStatus((prev) => ({ ...prev, [toolId]: null }))
-        }
-      } else {
-        toast.error(`Authorization failed: ${result.error}`)
-        if (toolId) {
-          setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
-        }
+          console.log('✅ Decrypted authConfig successfully')
+          console.log('  Decrypted config (full array):', decryptedConfig)
+
+          // Select the correct config based on allowUserInput
+          // Index 0: System default config
+          // Index 1: User custom config (when allowUserInput=true)
+          const configIndex = tool.allowUserInput ? 1 : 0
+
+          if (!Array.isArray(decryptedConfig) || decryptedConfig.length <= configIndex) {
+            console.error(`Config at index ${configIndex} not found in decrypted authConfig`)
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+            return
+          }
+
+          const selectedConfig = decryptedConfig[configIndex]
+          console.log(`  Using config at index ${configIndex} (allowUserInput=${tool.allowUserInput}):`, selectedConfig)
+
+          // Get credentials definition from configTemplate
+          const credentials = configTemplateObj.credentials || []
+          console.log('  Credentials definition:', credentials)
+
+          // Extract clientId and clientSecret based on credentials definition
+          const clientIdCred = credentials.find(
+            (c: any) => c.key === 'YOUR_CLIENT_ID'
+          )
+          const clientSecretCred = credentials.find(
+            (c: any) => c.key === 'YOUR_CLIENT_SECRET'
+          )
+
+          if (!clientIdCred || !clientSecretCred) {
+            console.error(
+              'Client ID or Client Secret credential not defined in configTemplate'
+            )
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+            return
+          }
+
+          // selectedConfig is an object like {ClientId: '...', ClientSecret: '...'}
+          // We need to extract values using the credential names
+          const clientId = selectedConfig[clientIdCred.name] || selectedConfig[clientIdCred.key]
+          const clientSecret = selectedConfig[clientSecretCred.name] || selectedConfig[clientSecretCred.key]
+          console.log('  clientId:', clientId)
+          console.log('  clientSecret:', clientSecret ? '***' : 'missing')
+
+          if (!clientId || !clientSecret) {
+            console.error(
+              'clientId or clientSecret not found in selected config',
+              'Available keys:',
+              Object.keys(selectedConfig)
+            )
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+            return
+          }
+
+          // Perform OAuth authorization through Electron
+          // Pass the decrypted clientId and clientSecret with authType
+          const authResult = await (
+            window as any
+          ).electronAPI.oauth.authenticate(effectiveAuthType, clientId, clientSecret)
+
+          console.log('🔍 Full auth result:', authResult)
+
+          if (authResult.success && mcpServerId && gatewayServerId) {
+            // After successful authorization, notify core via socket
+            console.log('====================================')
+            console.log('📤 Sending to Core (configure_server):')
+            console.log('====================================')
+            console.log('Gateway Server ID:', gatewayServerId)
+            console.log('MCP Server ID:', mcpServerId)
+
+            // Assemble authConf dynamically based on credentials definition and authType
+            authConf = credentials.map((cred: any) => {
+              let value = ''
+
+              if (effectiveAuthType === 2) {
+                // Google Drive: only refresh_token from OAuth result
+                if (cred.key === 'YOUR_REFRESH_TOKEN') {
+                  value = authResult.tokenInfo.refresh_token || ''
+                } else {
+                  value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
+                }
+              } else if (effectiveAuthType === 3) {
+                // Notion: both access_token and refresh_token from OAuth result
+                if (cred.key === 'YOUR_ACCESS_TOKEN') {
+                  value = authResult.tokenInfo.access_token || ''
+                } else if (cred.key === 'YOUR_REFRESH_TOKEN') {
+                  value = authResult.tokenInfo.refresh_token || ''
+                } else {
+                  value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
+                }
+              } else if (effectiveAuthType === 4) {
+                // Figma: both access_token and refresh_token from OAuth result (same as Notion)
+                if (cred.key === 'YOUR_ACCESS_TOKEN') {
+                  value = authResult.tokenInfo.access_token || ''
+                } else if (cred.key === 'YOUR_REFRESH_TOKEN') {
+                  value = authResult.tokenInfo.refresh_token || ''
+                } else {
+                  value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
+                }
+              } else {
+                // Default fallback
+                value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
+              }
+
+              return {
+                key: cred.key,
+                value: value,
+                dataType: cred.dataType || 1
+              }
+            })
+
+            // Send configuration via socket
+            console.log('🚀 Calling configureServer with:')
+            console.log(
+              '  gatewayServerId:',
+              gatewayServerId,
+              '(type:',
+              typeof gatewayServerId,
+              ')'
+            )
+            console.log(
+              '  mcpServerId:',
+              mcpServerId,
+              '(type:',
+              typeof mcpServerId,
+              ')'
+            )
+
+            const configResult = await configureServer(
+              gatewayServerId,
+              mcpServerId,
+              authConf,
+              restfulApiAuth,
+              remoteAuth
+            )
+
+            if (!configResult.success) {
+              toast.error(`Failed to configure server: ${configResult.error}`)
+              if (toolId) {
+                setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
+              }
+              setIsAuthenticating(false)
+              setAuthenticatingToolId(null)
+              return
+            }
+            if (toolId) {
+              setAuthStatus((prev) => ({ ...prev, [toolId]: null }))
+            }
+
+            console.log('✅ Core notified successfully:', configResult.data)
+          }
+          break
+        default:
+          console.error('Unknown tool category:', tool.category)
+          break
       }
     } catch (error) {
       console.error('OAuth auth error:', error)
@@ -1124,15 +1169,13 @@ function DashboardContent() {
       t.serverId ? t.serverId === toolServerId : t.name === toolServerId
     )
 
-    // If allowUserInput=true and authType in [2, 3, 4] (OAuth), need to check authorization status
-    if (tool && tool.allowUserInput && [2, 3, 4].includes(tool.authType)) {
+    // If allowUserInput=true and authType in ServerAuthType enum (OAuth), need to check authorization status
+    if (tool && tool.allowUserInput && !tool.configured) {
       // If not authorized, clicking should trigger the authorization flow regardless of current check state
-      if (!tool.configured) {
-        console.log(`   Tool requires authorization, triggering auth flow...`)
-        const toolId = `${gatewayServerId}-${clientId}-${toolServerId}`
-        handleOAuthAuth(gatewayServerId, tool.serverId, toolId, tool.authType)
-        return
-      }
+      console.log(`   Tool requires authorization, triggering auth flow...`)
+      const toolId = `${gatewayServerId}-${clientId}-${toolServerId}`
+      handleOAuthAuth(gatewayServerId, tool.serverId, toolId, tool.authType)
+      return
     }
 
     const updatedClients = clients.map((c) =>
@@ -1804,10 +1847,7 @@ function DashboardContent() {
                                         <input
                                           type="checkbox"
                                           checked={
-                                            tool.allowUserInput &&
-                                            [2, 3, 4].includes(tool.authType)
-                                              ? tool.enabled && tool.configured
-                                              : tool.enabled
+                                            tool.enabled && tool.configured
                                           }
                                           onChange={() =>
                                             toggleTool(
@@ -1825,8 +1865,7 @@ function DashboardContent() {
                                       </span>
 
                                       {/* Auth status indicators for OAuth tools */}
-                                      {tool.allowUserInput &&
-                                        [2, 3, 4].includes(tool.authType) && (
+                                      {tool.allowUserInput && (
                                           <>
                                             {/* Connecting status */}
                                             {authStatus[toolId] ===
@@ -1862,7 +1901,6 @@ function DashboardContent() {
 
                                     {/* Disconnect icon - only shown when allowUserInput=true and authType in [2,3,4] and authorized */}
                                     {tool.allowUserInput &&
-                                      [2, 3, 4].includes(tool.authType) &&
                                       tool.configured && (
                                         <Tooltip>
                                           <TooltipTrigger asChild>

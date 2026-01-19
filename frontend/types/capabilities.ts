@@ -30,6 +30,19 @@ export interface PromptConfig {
   dangerLevel?: number  // Danger level: 0=safe, 1=warning, 2=danger
 }
 
+export enum ServerAuthType {
+  ApiKey = 1,      // API Key authentication
+  GoogleAuth = 2,   // Google OAuth authentication
+  NotionAuth = 3,   // Notion OAuth authentication
+  FigmaAuth = 4,   // Figma OAuth authentication
+}
+
+export enum ServerCategory {
+  Template = 1,       // template server
+  CustomRemote = 2,   // custom remote server
+  RestApi = 3,        // RESTful API server
+}
+
 /**
  * Server configuration
  */
@@ -37,7 +50,8 @@ export interface ServerConfigWithEnabled {
   enabled: boolean
   serverName: string
   allowUserInput: boolean  // Allow user-provided configuration
-  authType: number        // Auth type: 1=API Key, 2=Google Drive 3=Notion 4=Figma
+  authType: ServerAuthType
+  category?: ServerCategory
   configured?: boolean     // Whether configured (meaningful only when allowUserInput=true)
   configTemplate?: string  // Config template JSON string (authConfig, credentials, etc.)
   tools: Record<string, ToolConfig>

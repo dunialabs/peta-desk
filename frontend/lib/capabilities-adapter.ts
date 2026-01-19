@@ -3,7 +3,7 @@
  * Convert Socket McpServerCapabilities to dashboard MCPClient format
  */
 
-import type { McpServerCapabilities, ServerConfigWithEnabled } from '@/types/capabilities'
+import type { McpServerCapabilities, ServerAuthType, ServerCategory, ServerConfigWithEnabled } from '@/types/capabilities'
 
 export interface MCPFunction {
   id: string
@@ -20,7 +20,8 @@ export interface MCPTool {
   dataFunctions: MCPFunction[] // Resources and prompts live here
   serverId?: string // Store the original MCP server ID (e.g. 0832ea0f85a847489dcc396d8211f025)
   allowUserInput?: boolean  // Allow user-provided config
-  authType?: number        // Auth type: 1=API Key, 2=OAuth
+  authType: ServerAuthType
+  category?: ServerCategory
   configured?: boolean      // Whether configured
   configTemplate?: string   // Config template JSON string (includes authConfig, credentials, etc.)
 }
@@ -116,6 +117,7 @@ export function convertCapabilitiesToClients(
       serverId: mcpServerId, // Store original ID
       allowUserInput: serverConfig.allowUserInput,
       authType: serverConfig.authType,
+      category: serverConfig.category,
       configured: serverConfig.configured,
       configTemplate: serverConfig.configTemplate
     })
@@ -189,6 +191,7 @@ export function convertClientsToCapabilities(clients: MCPClient[]): McpServerCap
         serverName: mcpServerTool.name,
         allowUserInput: mcpServerTool.allowUserInput || false,
         authType: mcpServerTool.authType || 0,
+        category: mcpServerTool.category,
         configured: mcpServerTool.configured,
         configTemplate: mcpServerTool.configTemplate,
         tools,

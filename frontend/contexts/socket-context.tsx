@@ -105,7 +105,9 @@ interface SocketContextType {
   configureServer: (
     serverId: string,
     mcpServerId: string,
-    authConf: Array<{ key: string; value: string; dataType: number }>
+    authConf?: Array<{ key: string; value: string; dataType: number }>,
+    restfulApiAuth?: Map<any, any>,
+    remoteAuth?: { params: Record<string, any>; headers: Record<string, any> }
   ) => Promise<{ success: boolean; data?: any; error?: string }>
   unconfigureServer: (
     serverId: string,
@@ -1119,7 +1121,9 @@ export function SocketProvider({
     async (
       serverId: string,
       mcpServerId: string,
-      authConf: Array<{ key: string; value: string; dataType: number }>
+      authConf?: Array<{ key: string; value: string; dataType: number }>,
+      restfulApiAuth?: Map<any, any>,
+      remoteAuth?: { params: Record<string, any>; headers: Record<string, any> }
     ): Promise<{ success: boolean; data?: any; error?: string }> => {
       const conn = connections.get(serverId)
 
@@ -1171,12 +1175,14 @@ export function SocketProvider({
 
           conn.socket.on('socket_response', responseHandler)
 
-          // Send request - conforms to core's new format: { requestId, data: { serverId, authConf } }
+          // Send request - conforms to core's new format: { requestId, data: { serverId, authConf, restfulApiAuth, remoteAuth } }
           const requestData = {
             requestId,
             data: {
               serverId: mcpServerId,
-              authConf
+              authConf,
+              restfulApiAuth,
+              remoteAuth
             },
             timestamp: Date.now()
           }
