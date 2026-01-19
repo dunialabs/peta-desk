@@ -53,47 +53,59 @@ function ConfigureRemoteContent() {
     const sId = searchParams.get('serverId') || ''
     const mId = searchParams.get('mcpServerId') || ''
     const tId = searchParams.get('toolId') || ''
-    const configTemplate = searchParams.get('configTemplate') || ''
 
     setServerId(sId)
     setMcpServerId(mId)
     setToolId(tId)
 
-    // Parse configTemplate
-    if (configTemplate) {
+    // Read configTemplate from sessionStorage instead of URL
+    const storedData = sessionStorage.getItem('remote-config-template')
+    if (storedData) {
       try {
-        const decoded = decodeURIComponent(configTemplate)
-        const parsed = JSON.parse(decoded)
+        const data = JSON.parse(storedData)
 
-        // Set URL
-        if (parsed.url) {
-          setUrl(parsed.url)
+        // Validate that stored data matches URL params (security check)
+        if (data.serverId === sId && data.mcpServerId === mId && data.toolId === tId) {
+          const parsed = JSON.parse(data.configTemplate)
 
-          // Extract query params from URL
-          const extractedParams = extractQueryParams(parsed.url)
-          const paramsArray = Object.entries(extractedParams).map(
-            ([key, value]) => ({ key, value })
-          )
-          setParams(paramsArray.length > 0 ? paramsArray : [{ key: '', value: '' }])
+          // Set URL
+          if (parsed.url) {
+            setUrl(parsed.url)
+
+            // Extract query params from URL
+            const extractedParams = extractQueryParams(parsed.url)
+            const paramsArray = Object.entries(extractedParams).map(
+              ([key, value]) => ({ key, value })
+            )
+            setParams(paramsArray.length > 0 ? paramsArray : [{ key: '', value: '' }])
+          } else {
+            setParams([{ key: '', value: '' }])
+          }
+
+          // Set headers
+          if (parsed.headers && typeof parsed.headers === 'object') {
+            const headersArray = Object.entries(parsed.headers).map(
+              ([key, value]) => ({ key, value: String(value) })
+            )
+            setHeaders(headersArray.length > 0 ? headersArray : [{ key: '', value: '' }])
+          } else {
+            setHeaders([{ key: '', value: '' }])
+          }
+
+          // Clean up sessionStorage after reading
+          sessionStorage.removeItem('remote-config-template')
         } else {
-          setParams([{ key: '', value: '' }])
-        }
-
-        // Set headers
-        if (parsed.headers && typeof parsed.headers === 'object') {
-          const headersArray = Object.entries(parsed.headers).map(
-            ([key, value]) => ({ key, value: String(value) })
-          )
-          setHeaders(headersArray.length > 0 ? headersArray : [{ key: '', value: '' }])
-        } else {
-          setHeaders([{ key: '', value: '' }])
+          console.error('Stored data does not match URL parameters')
+          toast.error('Configuration data mismatch')
         }
       } catch (error) {
-        console.error('Failed to parse configTemplate:', error)
-        toast.error('Failed to parse configuration template')
+        console.error('Failed to parse stored config template:', error)
+        toast.error('Failed to load configuration template')
         setParams([{ key: '', value: '' }])
         setHeaders([{ key: '', value: '' }])
       }
+    } else {
+      toast.error('Configuration template not found')
     }
   }, [searchParams])
 

@@ -808,24 +808,40 @@ function DashboardContent() {
 
       switch (tool.category) {
         case ServerCategory.RestApi: {
-          // Navigate to RestApi configuration page
-          const configTemplateEncoded = encodeURIComponent(
-            tool.configTemplate || '{}'
+          // Store configTemplate in sessionStorage to avoid URL length limitations
+          sessionStorage.setItem(
+            'restapi-config-template',
+            JSON.stringify({
+              configTemplate: tool.configTemplate,
+              serverId: gatewayServerId,
+              mcpServerId: mcpServerId,
+              toolId: toolId
+            })
           )
+
+          // Navigate with only IDs (no large data in URL)
           router.push(
-            `/configure-restapi?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&configTemplate=${configTemplateEncoded}&toolId=${toolId}`
+            `/configure-restapi?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`
           )
           setIsAuthenticating(false)
           setAuthenticatingToolId(null)
           return
         }
         case ServerCategory.CustomRemote: {
-          // Navigate to CustomRemote configuration page
-          const configTemplateEncoded = encodeURIComponent(
-            tool.configTemplate || '{}'
+          // Store configTemplate in sessionStorage to avoid URL length limitations
+          sessionStorage.setItem(
+            'remote-config-template',
+            JSON.stringify({
+              configTemplate: tool.configTemplate,
+              serverId: gatewayServerId,
+              mcpServerId: mcpServerId,
+              toolId: toolId
+            })
           )
+
+          // Navigate with only IDs (no large data in URL)
           router.push(
-            `/configure-remote?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&configTemplate=${configTemplateEncoded}&toolId=${toolId}`
+            `/configure-remote?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`
           )
           setIsAuthenticating(false)
           setAuthenticatingToolId(null)
@@ -1043,11 +1059,12 @@ function DashboardContent() {
   const handleOAuthLogout = (
     gatewayServerId: string,
     mcpServerId?: string,
-    authType?: number
+    authType?: number,
+    category?: number
   ) => {
-    // Store gatewayServerId, mcpServerId, and authType for confirmDisconnect
+    // Store gatewayServerId, mcpServerId, authType, and category for confirmDisconnect
     setDisconnectTargetServerId(
-      mcpServerId ? `${gatewayServerId}:${mcpServerId}:${authType}` : undefined
+      mcpServerId ? `${gatewayServerId}:${mcpServerId}:${authType}:${category}` : undefined
     )
     setShowDisconnectDialog(true)
   }
@@ -1059,52 +1076,75 @@ function DashboardContent() {
 
       if (!disconnectTargetServerId) return
 
-      // Parse gatewayServerId, mcpServerId, and authType
-      const [gatewayServerId, mcpServerId, authTypeStr] =
+      // Parse gatewayServerId, mcpServerId, authType, and category
+      const [gatewayServerId, mcpServerId, authTypeStr, categoryStr] =
         disconnectTargetServerId.split(':')
       const authType = parseInt(authTypeStr, 10)
+      const category = parseInt(categoryStr, 10)
 
-      // Clear local token through Electron
-      const result = await (window as any).electronAPI.oauth.logout(authType)
-
-      if (result.success) {
-
-        // After successful logout, notify core to unconfigure via socket
+      // Check if this is RestApi or CustomRemote (no OAuth logout needed)
+      if (category === ServerCategory.RestApi || category === ServerCategory.CustomRemote) {
+        // Direct unconfigure for RestApi/CustomRemote - no OAuth logout
         console.log('====================================')
         console.log('📤 Sending to Core (unconfigure_server):')
         console.log('====================================')
         console.log('Gateway Server ID:', gatewayServerId)
         console.log('MCP Server ID:', mcpServerId)
+        console.log('Category:', category === ServerCategory.RestApi ? 'RestApi' : 'CustomRemote')
         console.log('====================================')
 
-        const unconfigResult = await unconfigureServer(
-          gatewayServerId,
-          mcpServerId
-        )
+        const unconfigResult = await unconfigureServer(gatewayServerId, mcpServerId)
 
-        if (!unconfigResult.success) {
-          console.warn(
-            'Failed to notify core about logout:',
-            unconfigResult.error
-          )
-          // Does not affect local logout
-        } else {
+        if (unconfigResult.success) {
           console.log('✅ Core notified successfully:', unconfigResult.data)
+          toast.success('Configuration removed successfully')
+          // Refresh data to update configured status
+          await loadAllServersData()
+        } else {
+          console.warn('Failed to unconfigure server:', unconfigResult.error)
+          toast.error(`Failed to remove configuration: ${unconfigResult.error}`)
         }
-      }
-
-      if (result.success) {
-        toast.success(`Disconnected from ${getAuthTypeName(authType)}`)
-        if (authType === 2) {
-          setGoogleDriveAuth({ authenticated: false })
-        }
-        // Refresh data to update configured status
-        await loadAllServersData()
       } else {
-        toast.error(`Disconnect failed: ${result.error}`)
+        // Template server with OAuth - need to logout first
+        // Clear local token through Electron
+        const result = await (window as any).electronAPI.oauth.logout(authType)
+
+        if (result.success) {
+
+          // After successful logout, notify core to unconfigure via socket
+          console.log('====================================')
+          console.log('📤 Sending to Core (unconfigure_server):')
+          console.log('====================================')
+          console.log('Gateway Server ID:', gatewayServerId)
+          console.log('MCP Server ID:', mcpServerId)
+          console.log('====================================')
+
+          const unconfigResult = await unconfigureServer(gatewayServerId,mcpServerId)
+
+          if (!unconfigResult.success) {
+            console.warn(
+              'Failed to notify core about logout:',
+              unconfigResult.error
+            )
+            // Does not affect local logout
+          } else {
+            console.log('✅ Core notified successfully:', unconfigResult.data)
+          }
+        }
+
+        if (result.success) {
+          toast.success(`Disconnected from ${getAuthTypeName(authType)}`)
+          if (authType === 2) {
+            setGoogleDriveAuth({ authenticated: false })
+          }
+          // Refresh data to update configured status
+          await loadAllServersData()
+        } else {
+          toast.error(`Disconnect failed: ${result.error}`)
+        }
       }
     } catch (error) {
-      console.error('OAuth disconnect error:', error)
+      console.error('Disconnect error:', error)
       toast.error('Failed to disconnect')
     } finally {
       setIsAuthenticating(false)
@@ -1909,7 +1949,8 @@ function DashboardContent() {
                                                 handleOAuthLogout(
                                                   gatewayServerId,
                                                   tool.serverId,
-                                                  tool.authType
+                                                  tool.authType,
+                                                  tool.category
                                                 )
                                               }
                                               onMouseEnter={() =>
