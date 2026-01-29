@@ -8,17 +8,13 @@ const {
   Menu,
   nativeImage,
   Notification,
-  ipcMain,
-  session
+  ipcMain
 } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const biometricAuth = require('./biometric-auth')
 const passwordManager = require('./password-manager')
 const MCPConfigManager = require('./mcp-config-manager')
-const GoogleDriveAuth = require('./google-drive-auth')
-const NotionAuth = require('./notion-auth')
-const FigmaAuth = require('./figma-auth')
 const socketClient = require('./socket-client')
 
 const args = process.argv.slice(1)
@@ -232,9 +228,6 @@ if (process.platform !== 'darwin') {
 let mainWindow
 let tray
 let mcpConfigManager = null // MCP config manager
-let googleDriveAuth = null // Google Drive auth manager
-let notionAuth = null // Notion auth manager
-let figmaAuth = null // Figma auth manager
 let isConnected = false // connection status
 let isBiometricAuthenticating = false // biometric auth status
 let frontendIndexPath = null
@@ -1237,255 +1230,139 @@ ipcMain.handle('backup:downloadBackup', async (event, filename) => {
   }
 })
 
-// ==================== Generic OAuth API ====================
+// ==================== OAuth Authorization API ====================
 
-// Get OAuth provider based on authType
-function getOAuthProvider(authType) {
-  switch (authType) {
-    case 2:
-      if (!googleDriveAuth) {
-        throw new Error('Google Drive Auth not initialized')
-      }
-      return googleDriveAuth
-    case 3:
-      if (!notionAuth) {
-        throw new Error('Notion Auth not initialized')
-      }
-      return notionAuth
-    case 4:
-      if (!figmaAuth) {
-        throw new Error('Figma Auth not initialized')
-      }
-      return figmaAuth
-    default:
-      throw new Error(`Unsupported auth type: ${authType}`)
+const OAUTH_REDIRECT_URI = 'http://localhost'
+
+function buildAuthorizationUrl(config) {
+  const url = new URL(config.authorizationUrl)
+
+  url.searchParams.set('client_id', config.deskClientId)
+  url.searchParams.set('redirect_uri', OAUTH_REDIRECT_URI)
+  url.searchParams.set('response_type', config.responseType)
+
+  if (config.scopes && config.scopes !== '') {
+    url.searchParams.set('scope', config.scopes)
+  }
+
+  if (config.extraParams) {
+    for (const [key, value] of Object.entries(config.extraParams)) {
+      url.searchParams.set(key, value)
+    }
+  }
+
+  return url.toString()
+}
+
+function parseAuthorizationCallback(url) {
+  try {
+    const urlObj = new URL(url)
+    return {
+      code: urlObj.searchParams.get('code'),
+      error: urlObj.searchParams.get('error')
+    }
+  } catch (error) {
+    return { code: null, error: 'Invalid URL' }
   }
 }
 
-// Generic OAuth authorization
-ipcMain.handle('oauth:authenticate', async (event, { authType, clientId, clientSecret }) => {
+ipcMain.handle('oauth:authorize', async (event, config) => {
   try {
-    log(`OAuth authentication started for authType: ${authType}`)
-
-    if (!clientId || !clientSecret) {
-      throw new Error('clientId and clientSecret are required')
+    if (!config || typeof config !== 'object') {
+      throw new Error('OAuth config is required')
     }
 
-    const provider = getOAuthProvider(authType)
-    const result = await provider.authenticate({
-      clientId,
-      clientSecret,
-      parentWindow: mainWindow
-    })
-
-    log(`OAuth authentication successful for authType: ${authType}`)
-
-    // Show the main window after successful authorization
-    if (result.success && mainWindow) {
-      showMainWindow()
+    if (!config.authorizationUrl) {
+      throw new Error('authorizationUrl is required')
     }
 
-    return result
-  } catch (error) {
-    log(`OAuth authentication failed for authType ${authType}: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-})
-
-// Check OAuth authorization status
-ipcMain.handle('oauth:isAuthenticated', async (event, authType) => {
-  try {
-    const provider = getOAuthProvider(authType)
-    const isAuth = provider.isAuthenticated()
-    return { success: true, authenticated: isAuth }
-  } catch (error) {
-    log(`Failed to check OAuth auth status for authType ${authType}: ${error.message}`)
-    return { success: false, authenticated: false, error: error.message }
-  }
-})
-
-// Generic OAuth logout
-ipcMain.handle('oauth:logout', async (event, authType) => {
-  try {
-    log(`OAuth logout started for authType: ${authType}`)
-    const provider = getOAuthProvider(authType)
-    await provider.logout()
-    log(`OAuth logout successful for authType: ${authType}`)
-    return { success: true }
-  } catch (error) {
-    log(`OAuth logout failed for authType ${authType}: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-})
-
-// ==================== Google Drive API ====================
-
-// Google Drive authorization (backward compatibility - delegates to oauth:authenticate)
-ipcMain.handle('googledrive:authenticate', async (event, { clientId, clientSecret }) => {
-  try {
-    if (!googleDriveAuth) {
-      throw new Error('Google Drive Auth not initialized')
+    if (!config.deskClientId) {
+      throw new Error('deskClientId is required')
     }
 
-    if (!clientId || !clientSecret) {
-      throw new Error('clientId and clientSecret are required')
+    if (!config.responseType) {
+      throw new Error('responseType is required')
     }
 
-    const result = await googleDriveAuth.authenticate({
-      clientId,
-      clientSecret,
-      parentWindow: mainWindow
-    })
-    log('Google Drive authentication successful')
+    const authUrl = buildAuthorizationUrl(config)
 
-    // Show the main window after successful authorization
-    if (result.success && mainWindow) {
-      showMainWindow()
-    }
+    return await new Promise((resolve) => {
+      let isHandled = false
 
-    // Return result directly because it already contains success and info
-    return result
-  } catch (error) {
-    log(`Google Drive authentication failed: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-})
+      const authWindow = new BrowserWindow({
+        width: 600,
+        height: 800,
+        modal: false,
+        show: true,
+        center: true,
+        alwaysOnTop: true,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          webSecurity: true
+        }
+      })
 
-// Check Google Drive authorization status
-ipcMain.handle('googledrive:isAuthenticated', async () => {
-  try {
-    if (!googleDriveAuth) {
-      return { success: false, authenticated: false }
-    }
+      authWindow.once('ready-to-show', () => {
+        authWindow.show()
+        authWindow.focus()
+      })
 
-    const isAuth = googleDriveAuth.isAuthenticated()
-    return { success: true, authenticated: isAuth }
-  } catch (error) {
-    log(`Failed to check Google Drive auth status: ${error.message}`)
-    return { success: false, authenticated: false, error: error.message }
-  }
-})
+      let hasBlurred = false
+      authWindow.on('blur', () => {
+        hasBlurred = true
+        authWindow.setAlwaysOnTop(false)
+      })
 
-// Get Google Drive user info
-ipcMain.handle('googledrive:getUserInfo', async () => {
-  try {
-    if (!googleDriveAuth) {
-      throw new Error('Google Drive Auth not initialized')
-    }
+      authWindow.on('focus', () => {
+        if (process.platform === 'darwin' && hasBlurred) {
+          authWindow.setAlwaysOnTop(true)
+        }
+      })
 
-    const userInfo = await googleDriveAuth.getUserInfo()
-    return { success: true, data: userInfo }
-  } catch (error) {
-    log(`Failed to get Google Drive user info: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-})
+      const handleCallbackUrl = (url) => {
+        if (isHandled) return
+        isHandled = true
 
-// Google Drive logout
-ipcMain.handle('googledrive:logout', async () => {
-  try {
-    if (!googleDriveAuth) {
-      throw new Error('Google Drive Auth not initialized')
-    }
+        const { code, error } = parseAuthorizationCallback(url)
 
-    await googleDriveAuth.logout()
-    log('Google Drive logout successful')
-    return { success: true }
-  } catch (error) {
-    log(`Google Drive logout failed: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-})
+        if (error) {
+          resolve({ success: false, error })
+        } else if (!code) {
+          resolve({ success: false, error: 'Authorization code not found' })
+        } else {
+          resolve({ success: true, code, redirectUri: OAUTH_REDIRECT_URI })
+        }
 
-// Upload backup to Google Drive
-ipcMain.handle('googledrive:uploadBackup', async (event, filename) => {
-  try {
-    if (!googleDriveAuth) {
-      throw new Error('Google Drive Auth not initialized')
-    }
-
-    // Read local backup file
-    const backupDir = path.join(app.getPath('userData'), 'backups')
-    const filePath = path.join(backupDir, filename)
-
-    if (!fs.existsSync(filePath)) {
-      throw new Error('Backup file not found')
-    }
-
-    const fileBuffer = fs.readFileSync(filePath)
-
-    // Upload to Google Drive
-    const result = await googleDriveAuth.uploadFile(
-      filename,
-      fileBuffer,
-      'application/json'
-    )
-
-    log(`Backup uploaded to Google Drive: ${filename}`)
-    return { success: true, data: result }
-  } catch (error) {
-    log(`Failed to upload backup to Google Drive: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-})
-
-// Download backup from Google Drive
-ipcMain.handle(
-  'googledrive:downloadBackup',
-  async (event, fileId, fileName) => {
-    try {
-      if (!googleDriveAuth) {
-        throw new Error('Google Drive Auth not initialized')
+        if (!authWindow.isDestroyed()) {
+          authWindow.close()
+        }
       }
 
-      // Download file from Google Drive
-      const result = await googleDriveAuth.downloadFile(fileId)
+      authWindow.webContents.on('will-redirect', (event, url) => {
+        if (url.startsWith(OAUTH_REDIRECT_URI)) {
+          event.preventDefault()
+          handleCallbackUrl(url)
+        }
+      })
 
-      // Save to local backup directory
-      const backupDir = path.join(app.getPath('userData'), 'backups')
-      if (!fs.existsSync(backupDir)) {
-        fs.mkdirSync(backupDir, { recursive: true })
-      }
+      authWindow.webContents.on('will-navigate', (event, url) => {
+        if (url.startsWith(OAUTH_REDIRECT_URI)) {
+          event.preventDefault()
+          handleCallbackUrl(url)
+        }
+      })
 
-      const filePath = path.join(backupDir, fileName)
-      fs.writeFileSync(filePath, result.data)
+      authWindow.on('closed', () => {
+        if (!isHandled) {
+          resolve({ success: false, error: 'Authentication window was closed' })
+        }
+      })
 
-      log(`Backup downloaded from Google Drive: ${fileName}`)
-      return { success: true, filePath }
-    } catch (error) {
-      log(`Failed to download backup from Google Drive: ${error.message}`)
-      return { success: false, error: error.message }
-    }
-  }
-)
-
-// List backups in Google Drive
-ipcMain.handle('googledrive:listBackups', async () => {
-  try {
-    if (!googleDriveAuth) {
-      throw new Error('Google Drive Auth not initialized')
-    }
-
-    const result = await googleDriveAuth.listBackups()
-    return { success: true, data: result.files }
+      authWindow.loadURL(authUrl)
+    })
   } catch (error) {
-    log(`Failed to list Google Drive backups: ${error.message}`)
-    return { success: false, error: error.message }
-  }
-})
-
-// Delete backups in Google Drive
-ipcMain.handle('googledrive:deleteBackup', async (event, fileId) => {
-  try {
-    if (!googleDriveAuth) {
-      throw new Error('Google Drive Auth not initialized')
-    }
-
-    await googleDriveAuth.deleteFile(fileId)
-    log(`Backup deleted from Google Drive: ${fileId}`)
-    return { success: true }
-  } catch (error) {
-    log(`Failed to delete Google Drive backup: ${error.message}`)
+    log(`OAuth authorization failed: ${error.message}`)
     return { success: false, error: error.message }
   }
 })
@@ -2319,21 +2196,6 @@ app.whenReady().then(async () => {
         mcpConfigManager = new MCPConfigManager()
         log('MCP Config Manager initialized')
         markPerformance('MCP Config Manager initialized')
-
-        // Initialize Google Drive auth manager
-        googleDriveAuth = new GoogleDriveAuth()
-        log('Google Drive Auth initialized')
-        markPerformance('Google Drive Auth initialized')
-
-        // Initialize Notion auth manager
-        notionAuth = new NotionAuth()
-        log('Notion Auth initialized')
-        markPerformance('Notion Auth initialized')
-
-        // Initialize Figma auth manager
-        figmaAuth = new FigmaAuth()
-        log('Figma Auth initialized')
-        markPerformance('Figma Auth initialized')
 
         // Set socket connection state callback
         socketClient.setConnectionStatusCallback((connected) => {

@@ -82,10 +82,6 @@ function DashboardContent() {
   const [serverSwitches, setServerSwitches] = useState<Record<string, boolean>>(
     {}
   )
-  const [googleDriveAuth, setGoogleDriveAuth] = useState<{
-    authenticated: boolean
-    userInfo?: any
-  }>({ authenticated: false })
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [authenticatingToolId, setAuthenticatingToolId] = useState<
     string | null
@@ -106,33 +102,6 @@ function DashboardContent() {
   const [reconnectingServers, setReconnectingServers] = useState<Set<string>>(
     new Set()
   ) // Track which servers are currently reconnecting
-
-  // Check Google Drive authorization status
-  const checkGoogleDriveAuth = useCallback(async () => {
-    try {
-      if (
-        typeof window !== 'undefined' &&
-        (window as any).electronAPI?.googleDrive
-      ) {
-        const result = await (
-          window as any
-        ).electronAPI.googleDrive.isAuthenticated()
-        if (result.success && result.authenticated) {
-          const userInfo = await (
-            window as any
-          ).electronAPI.googleDrive.getUserInfo()
-          setGoogleDriveAuth({
-            authenticated: true,
-            userInfo: userInfo.success ? userInfo.data : undefined
-          })
-        } else {
-          setGoogleDriveAuth({ authenticated: false })
-        }
-      }
-    } catch (error) {
-      console.error('Failed to check Google Drive auth:', error)
-    }
-  }, [])
 
   // Get all servers (including failed connections)
   const getAllServers = useCallback((): string[] => {
@@ -744,11 +713,9 @@ function DashboardContent() {
 
     setAutoLockTimer(globalAutoLockTimer)
 
-    // Check Google Drive authorization status
-    checkGoogleDriveAuth()
-  }, [globalAutoLockTimer, updateAutoLockTimer, checkGoogleDriveAuth])
+  }, [globalAutoLockTimer, updateAutoLockTimer])
 
-  // Google Drive authorization handling
+  // OAuth authorization handling
   // Helper function to get auth type display name
   const getAuthTypeName = (authType: number): string => {
     switch (authType) {
@@ -789,7 +756,7 @@ function DashboardContent() {
       // Determine authType from tool if not provided
       const effectiveAuthType = authType ?? tool.authType
 
-      // Parse configTemplate to get authConfig
+      // Parse configTemplate to get oAuthConfig
       let configTemplateObj
       try {
         configTemplateObj = JSON.parse(tool.configTemplate)
@@ -857,99 +824,70 @@ function DashboardContent() {
             return
           }
 
-          // Template-specific OAuth flow
-          const authConfigEncrypted = configTemplateObj.authConfig
-          if (!authConfigEncrypted) {
-            console.error('authConfig not found in configTemplate')
+          // Template-specific OAuth flow (config-driven)
+          const oAuthConfig = configTemplateObj.oAuthConfig
+          if (!oAuthConfig) {
+            console.error('oAuthConfig not found in configTemplate')
             setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
             setIsAuthenticating(false)
             setAuthenticatingToolId(null)
             return
           }
 
-          // Decrypt authConfig to get credentials
-          const { decryptAuthConfig, getConfigValue } = await import(
-            '@/lib/aes-gcm-decrypt'
-          )
-          const decryptedConfig = await decryptAuthConfig(authConfigEncrypted)
-
-          if (!decryptedConfig) {
-            console.error('Failed to decrypt authConfig')
+          if (!oAuthConfig.deskClientId) {
+            console.error('deskClientId not found in oAuthConfig')
             setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
             setIsAuthenticating(false)
             setAuthenticatingToolId(null)
             return
           }
 
-          console.log('✅ Decrypted authConfig successfully')
-          console.log('  Decrypted config (full array):', decryptedConfig)
-
-          // Select the correct config based on allowUserInput
-          // Index 0: System default config
-          // Index 1: User custom config (when allowUserInput=true)
-          const configIndex = tool.allowUserInput ? 1 : 0
-
-          if (!Array.isArray(decryptedConfig) || decryptedConfig.length <= configIndex) {
-            console.error(`Config at index ${configIndex} not found in decrypted authConfig`)
+          if (!oAuthConfig.authorizationUrl || !oAuthConfig.responseType) {
+            console.error('oAuthConfig missing required fields')
             setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
             setIsAuthenticating(false)
             setAuthenticatingToolId(null)
             return
           }
 
-          const selectedConfig = decryptedConfig[configIndex]
-          console.log(`  Using config at index ${configIndex} (allowUserInput=${tool.allowUserInput}):`, selectedConfig)
-
-          // Get credentials definition from configTemplate
-          const credentials = configTemplateObj.credentials || []
-          console.log('  Credentials definition:', credentials)
-
-          // Extract clientId and clientSecret based on credentials definition
-          const clientIdCred = credentials.find(
-            (c: any) => c.key === 'YOUR_CLIENT_ID'
-          )
-          const clientSecretCred = credentials.find(
-            (c: any) => c.key === 'YOUR_CLIENT_SECRET'
-          )
-
-          if (!clientIdCred || !clientSecretCred) {
-            console.error(
-              'Client ID or Client Secret credential not defined in configTemplate'
-            )
-            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-            setIsAuthenticating(false)
-            setAuthenticatingToolId(null)
-            return
-          }
-
-          // selectedConfig is an object like {ClientId: '...', ClientSecret: '...'}
-          // We need to extract values using the credential names
-          const clientId = selectedConfig[clientIdCred.name] || selectedConfig[clientIdCred.key]
-          const clientSecret = selectedConfig[clientSecretCred.name] || selectedConfig[clientSecretCred.key]
-          console.log('  clientId:', clientId)
-          console.log('  clientSecret:', clientSecret ? '***' : 'missing')
-
-          if (!clientId || !clientSecret) {
-            console.error(
-              'clientId or clientSecret not found in selected config',
-              'Available keys:',
-              Object.keys(selectedConfig)
-            )
-            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-            setIsAuthenticating(false)
-            setAuthenticatingToolId(null)
-            return
-          }
+          const redirectUri = 'http://localhost'
 
           // Perform OAuth authorization through Electron
-          // Pass the decrypted clientId and clientSecret with authType
           const authResult = await (
             window as any
-          ).electronAPI.oauth.authenticate(effectiveAuthType, clientId, clientSecret)
+          ).electronAPI.oauth.authorize(oAuthConfig)
 
           console.log('🔍 Full auth result:', authResult)
 
-          if (authResult.success && mcpServerId && gatewayServerId) {
+          if (!authResult?.success) {
+            throw new Error(authResult?.error || 'OAuth authorization failed')
+          }
+
+          const code = authResult.code
+          const effectiveRedirectUri = authResult.redirectUri || redirectUri
+
+          if (!code || !effectiveRedirectUri) {
+            console.error('OAuth code or redirectUri is missing')
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+            return
+          }
+
+          authConf = [
+            {
+              key: 'YOUR_OAUTH_CODE',
+              value: code,
+              dataType: 1
+            },
+            {
+              key: 'YOUR_OAUTH_REDIRECT_URL',
+              value: effectiveRedirectUri,
+              dataType: 1
+            }
+          ]
+
+          if (mcpServerId && gatewayServerId) {
             // After successful authorization, notify core via socket
             console.log('====================================')
             console.log('📤 Sending to Core (configure_server):')
@@ -957,64 +895,7 @@ function DashboardContent() {
             console.log('Gateway Server ID:', gatewayServerId)
             console.log('MCP Server ID:', mcpServerId)
 
-            // Assemble authConf dynamically based on credentials definition and authType
-            authConf = credentials.map((cred: any) => {
-              let value = ''
-
-              if (effectiveAuthType === 2) {
-                // Google Drive: only refresh_token from OAuth result
-                if (cred.key === 'YOUR_REFRESH_TOKEN') {
-                  value = authResult.tokenInfo.refresh_token || ''
-                } else {
-                  value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
-                }
-              } else if (effectiveAuthType === 3) {
-                // Notion: both access_token and refresh_token from OAuth result
-                if (cred.key === 'YOUR_ACCESS_TOKEN') {
-                  value = authResult.tokenInfo.access_token || ''
-                } else if (cred.key === 'YOUR_REFRESH_TOKEN') {
-                  value = authResult.tokenInfo.refresh_token || ''
-                } else {
-                  value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
-                }
-              } else if (effectiveAuthType === 4) {
-                // Figma: both access_token and refresh_token from OAuth result (same as Notion)
-                if (cred.key === 'YOUR_ACCESS_TOKEN') {
-                  value = authResult.tokenInfo.access_token || ''
-                } else if (cred.key === 'YOUR_REFRESH_TOKEN') {
-                  value = authResult.tokenInfo.refresh_token || ''
-                } else {
-                  value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
-                }
-              } else {
-                // Default fallback
-                value = selectedConfig[cred.name] || selectedConfig[cred.key] || ''
-              }
-
-              return {
-                key: cred.key,
-                value: value,
-                dataType: cred.dataType || 1
-              }
-            })
-
             // Send configuration via socket
-            console.log('🚀 Calling configureServer with:')
-            console.log(
-              '  gatewayServerId:',
-              gatewayServerId,
-              '(type:',
-              typeof gatewayServerId,
-              ')'
-            )
-            console.log(
-              '  mcpServerId:',
-              mcpServerId,
-              '(type:',
-              typeof mcpServerId,
-              ')'
-            )
-
             const configResult = await configureServer(
               gatewayServerId,
               mcpServerId,
@@ -1045,7 +926,7 @@ function DashboardContent() {
       }
     } catch (error) {
       console.error('OAuth auth error:', error)
-      toast.error(`Failed to authorize ${getAuthTypeName(effectiveAuthType || 0)}`)
+      toast.error(`Failed to authorize ${getAuthTypeName(authType || 0)}`)
       if (toolId) {
         setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
       }
@@ -1105,42 +986,24 @@ function DashboardContent() {
           toast.error(`Failed to remove configuration: ${unconfigResult.error}`)
         }
       } else {
-        // Template server with OAuth - need to logout first
-        // Clear local token through Electron
-        const result = await (window as any).electronAPI.oauth.logout(authType)
+        // Template server with OAuth - remove configuration only
+        console.log('====================================')
+        console.log('📤 Sending to Core (unconfigure_server):')
+        console.log('====================================')
+        console.log('Gateway Server ID:', gatewayServerId)
+        console.log('MCP Server ID:', mcpServerId)
+        console.log('====================================')
 
-        if (result.success) {
+        const unconfigResult = await unconfigureServer(gatewayServerId, mcpServerId)
 
-          // After successful logout, notify core to unconfigure via socket
-          console.log('====================================')
-          console.log('📤 Sending to Core (unconfigure_server):')
-          console.log('====================================')
-          console.log('Gateway Server ID:', gatewayServerId)
-          console.log('MCP Server ID:', mcpServerId)
-          console.log('====================================')
-
-          const unconfigResult = await unconfigureServer(gatewayServerId,mcpServerId)
-
-          if (!unconfigResult.success) {
-            console.warn(
-              'Failed to notify core about logout:',
-              unconfigResult.error
-            )
-            // Does not affect local logout
-          } else {
-            console.log('✅ Core notified successfully:', unconfigResult.data)
-          }
-        }
-
-        if (result.success) {
+        if (unconfigResult.success) {
+          console.log('✅ Core notified successfully:', unconfigResult.data)
           toast.success(`Disconnected from ${getAuthTypeName(authType)}`)
-          if (authType === 2) {
-            setGoogleDriveAuth({ authenticated: false })
-          }
           // Refresh data to update configured status
           await loadAllServersData()
         } else {
-          toast.error(`Disconnect failed: ${result.error}`)
+          console.warn('Failed to unconfigure server:', unconfigResult.error)
+          toast.error(`Failed to remove configuration: ${unconfigResult.error}`)
         }
       }
     } catch (error) {

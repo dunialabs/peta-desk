@@ -21,5 +21,5 @@ Key differences to watch for between development builds and packaged production 
 ## Checks Before Release
 - Replace `console.log` with environment-aware logging.
 - Confirm Socket.IO reconnection/backoff works in packaged builds without dev server.
-- Validate Google Drive auth and backup/restore flows in production artifacts.
+- Validate backup/restore flows in production artifacts.
 - Verify entitlements and app permissions on macOS/Windows/Linux targets.

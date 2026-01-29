@@ -27,7 +27,7 @@ An overview of how Socket.IO is integrated across the Electron main process and 
 ## UI Integration
 - Dashboard cards show connection status, capability lists, and active client counts.
 - Protocol handler page can auto-select a target server based on `proxyKey`.
-- Backup/restore and Google Drive actions reuse the same IPC bridge.
+- Backup/restore actions reuse the same IPC bridge.
 
 ## Recommended Practices
 - Keep IPC channel names prefixed (`mcp:`) and documented.
