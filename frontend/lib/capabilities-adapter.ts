@@ -18,7 +18,7 @@ export interface MCPTool {
   enabled: boolean
   functions: MCPFunction[]
   dataFunctions: MCPFunction[] // Resources and prompts live here
-  serverId?: string // Store the original MCP server ID (e.g. 0832ea0f85a847489dcc396d8211f025)
+  serverId: string // Store the original MCP server ID (e.g. 0832ea0f85a847489dcc396d8211f025)
   allowUserInput?: boolean  // Allow user-provided config
   authType: ServerAuthType
   category?: ServerCategory

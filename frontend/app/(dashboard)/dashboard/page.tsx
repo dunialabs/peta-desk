@@ -1738,7 +1738,7 @@ function DashboardContent() {
 
                               return (
                                 <div
-                                  key={tool.name}
+                                  key={tool.serverId}
                                   className="border-b border-gray-200 dark:border-gray-700"
                                 >
                                   <div className="flex items-center justify-between py-[10px]">
