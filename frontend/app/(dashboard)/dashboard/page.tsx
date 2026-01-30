@@ -256,7 +256,7 @@ function DashboardContent() {
 
       try {
         const config = JSON.parse(pendingConfigStr)
-        const { serverId, mcpServerId, toolId, restfulApiAuth, remoteAuth } =
+        const { serverId, mcpServerId, toolId, authConf, restfulApiAuth, remoteAuth } =
           config
 
         // Call configureServer with the appropriate auth data
@@ -271,13 +271,14 @@ function DashboardContent() {
             console.log('🚀 Calling configureServer with pending config:')
             console.log('  serverId:', serverId)
             console.log('  mcpServerId:', mcpServerId)
+            console.log('  authConf:', authConf ? 'present' : 'undefined')
             console.log('  restfulApiAuth:', restfulApiAuth ? 'present' : 'undefined')
             console.log('  remoteAuth:', remoteAuth ? 'present' : 'undefined')
 
             const configResult = await configureServer(
               serverId,
               mcpServerId,
-              undefined, // authConf (for Template only)
+              authConf,
               restfulApiAuth,
               remoteAuth
             )
@@ -815,10 +816,34 @@ function DashboardContent() {
           return
         }
         case ServerCategory.Template:
-          // Template server with ApiKey authType is not supported
+          // Template server with ApiKey uses credentials configuration
           if (effectiveAuthType === ServerAuthType.ApiKey) {
-            console.error('Tool category is Template and authType is ApiKey, not supported')
-            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            const credentials = configTemplateObj.credentials
+
+            if (!Array.isArray(credentials) || credentials.length === 0) {
+              console.error('credentials not found or empty in configTemplate')
+              toast.error('Credentials not found in configuration template')
+              setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+              setIsAuthenticating(false)
+              setAuthenticatingToolId(null)
+              return
+            }
+
+            // Store configTemplate in sessionStorage to avoid URL length limitations
+            sessionStorage.setItem(
+              'credentials-config-template',
+              JSON.stringify({
+                configTemplate: tool.configTemplate,
+                serverId: gatewayServerId,
+                mcpServerId: mcpServerId,
+                toolId: toolId
+              })
+            )
+
+            // Navigate with only IDs (no large data in URL)
+            router.push(
+              `/configure-credentials?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`
+            )
             setIsAuthenticating(false)
             setAuthenticatingToolId(null)
             return
