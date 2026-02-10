@@ -799,13 +799,76 @@ export function SocketProvider({
       }
 
       try {
-        localStorage.setItem(storageKey, JSON.stringify(configs))
+        // SECURITY: Prefer NOT persisting tokens in plaintext.
+        // If secure storage (`mcpServers`) exists, tokens are already stored encrypted there.
+        // In that case, we explicitly blank tokens in this legacy storage key.
+        //
+        // If `mcpServers` does not exist (legacy-only setups), we keep behavior unchanged to
+        // avoid breaking existing reconnect flows; migrating those setups requires a
+        // master-password prompt and token re-encryption.
+        let hasSecureTokenStore = false
+        try {
+          const mcpServersStr = localStorage.getItem('mcpServers')
+          if (mcpServersStr) {
+            const mcpServers = JSON.parse(mcpServersStr)
+            hasSecureTokenStore =
+              Array.isArray(mcpServers) && mcpServers.length > 0
+          }
+        } catch {
+          // Ignore parsing errors; treat as legacy mode.
+        }
+
+        const toPersist = hasSecureTokenStore
+          ? configs.map((c) => ({ ...c, token: '' }))
+          : configs
+
+        localStorage.setItem(storageKey, JSON.stringify(toPersist))
       } catch (error) {
         console.error('❌ Failed to save servers to storage:', error)
       }
     },
     [storageKey]
   )
+
+  /**
+   * One-time scrub of legacy `socket_servers` token storage.
+   *
+   * If modern secure storage (`mcpServers`) exists, any leftover plaintext tokens in the
+   * legacy key are redundant and should be removed.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      const mcpServersStr = localStorage.getItem('mcpServers')
+      if (!mcpServersStr) {
+        return
+      }
+
+      const mcpServers = JSON.parse(mcpServersStr)
+      if (!Array.isArray(mcpServers) || mcpServers.length === 0) {
+        return
+      }
+
+      const saved = localStorage.getItem(storageKey)
+      if (!saved) {
+        return
+      }
+
+      const servers = JSON.parse(saved)
+      if (!Array.isArray(servers)) {
+        return
+      }
+
+      // Remove any persisted token value (legacy bug).
+      const scrubbed = servers.map((s: any) => ({ ...s, token: '' }))
+      localStorage.setItem(storageKey, JSON.stringify(scrubbed))
+    } catch (error) {
+      console.warn('[Socket] Failed to scrub legacy token storage:', error)
+    }
+  }, [storageKey])
 
   /**
    * Auto-reconnect saved servers on app start
