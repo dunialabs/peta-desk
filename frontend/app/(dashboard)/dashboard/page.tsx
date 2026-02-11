@@ -1628,12 +1628,28 @@ function DashboardContent() {
               }
 
               const activeClientsCount = connection?.activeClientsCount ?? 0
-              const isConnected = connection?.isConnected
-              // If no connection exists, treat as connection failed
-              const connectionFailed = connection
-                ? connection.connectionFailed
-                : true
+              const connectionExists = !!connection
+              const isConnected = connection?.isConnected === true
+              const connectionFailed = connection?.connectionFailed === true
+              const hasEverConnected = !!connection?.lastConnectedAt
               const isReconnecting = reconnectingServers.has(gatewayServerId)
+              const isConnecting =
+                isReconnecting ||
+                (connectionExists &&
+                  !hasEverConnected &&
+                  !isConnected &&
+                  !connectionFailed)
+              const status: 'connecting' | 'connected' | 'failed' | 'disconnected' =
+                isConnecting
+                  ? 'connecting'
+                  : isConnected
+                    ? 'connected'
+                    : connectionFailed
+                      ? 'failed'
+                      : 'disconnected'
+              const showRetry = status === 'failed' || status === 'disconnected'
+              const statusLabel =
+                status === 'failed' ? 'Connect Failed' : 'Disconnected'
               const clients = serverClients[gatewayServerId] || []
 
               // Use activeClientsCount from socket notification for actual client connections
@@ -1661,24 +1677,22 @@ function DashboardContent() {
 
                           {/* Connection Status */}
                           {/* Connected: green dot */}
-                          {isConnected === true &&
-                            !connectionFailed &&
-                            !isReconnecting && (
+                          {status === 'connected' && (
                               <span className="w-[6px] h-[6px] rounded-full flex-shrink-0 bg-[#34C759]"></span>
                             )}
 
                           {/* Connecting: gray tag */}
-                          {isReconnecting && (
+                          {status === 'connecting' && (
                             <span className="px-[8px] py-[2px] text-[11px] text-[#8E8E93] dark:text-gray-400 bg-[#F5F5F5] dark:bg-gray-800 rounded-[6px] border-0 flex-shrink-0">
                               connecting
                             </span>
                           )}
 
-                          {/* Connect failed: red tag + retry button */}
-                          {connectionFailed && !isReconnecting && (
+                          {/* Failed/Disconnected: red tag + retry button */}
+                          {showRetry && (
                             <div className="flex items-center gap-2">
                               <span className="px-[8px] py-[2px] text-[11px] text-[#FF3B30] dark:text-red-400 bg-transparent rounded-[6px] border-0 flex-shrink-0">
-                                Connect Failed
+                                {statusLabel}
                               </span>
                               <button
                                 onClick={() => handleReconnect(gatewayServerId)}
@@ -1689,11 +1703,6 @@ function DashboardContent() {
                               </button>
                             </div>
                           )}
-
-                          {/* Disconnected: red dot */}
-                          {!connection && !isReconnecting && (
-                            <span className="w-[6px] h-[6px] rounded-full flex-shrink-0 bg-[#FF3B30]"></span>
-                          )}
                         </div>
 
                         {/* Connection Info */}
@@ -1703,7 +1712,7 @@ function DashboardContent() {
                       </div>
 
                       {/* Add to Client Button - Only show when connected */}
-                      {isConnected && !connectionFailed && (
+                      {status === 'connected' && (
                         <button
                           onClick={async (e) => {
                             if (
