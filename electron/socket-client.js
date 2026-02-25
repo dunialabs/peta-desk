@@ -66,12 +66,15 @@ class SocketClient {
         auth: {
           token: token
         },
+        extraHeaders: {
+          Authorization: `Bearer ${token}`
+        },
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 10000,
-        transports: ['websocket', 'polling']
+        transports: ['websocket']
       })
 
       // Set event listeners
