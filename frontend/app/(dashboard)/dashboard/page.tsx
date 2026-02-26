@@ -59,6 +59,77 @@ const dangerLevelOptions = [
   { label: 'Approval', value: DangerLevel.Approval }
 ]
 
+const OAUTH_CODE_VERIFIER_KEY = 'YOUR_OAUTH_PKCE_VERIFIER'
+const PKCE_VERIFIER_CHARSET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
+const PKCE_VERIFIER_LENGTH = 96
+
+type OAuthPKCEMethod = 'S256' | 'plain'
+
+const encodeBase64Url = (input: Uint8Array): string => {
+  let binary = ''
+  for (const byte of input) {
+    binary += String.fromCharCode(byte)
+  }
+
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+const generateCodeVerifier = (): string => {
+  const randomBytes = new Uint8Array(PKCE_VERIFIER_LENGTH)
+  crypto.getRandomValues(randomBytes)
+
+  let verifier = ''
+  for (const randomByte of randomBytes) {
+    verifier += PKCE_VERIFIER_CHARSET[randomByte % PKCE_VERIFIER_CHARSET.length]
+  }
+
+  return verifier
+}
+
+const generateS256CodeChallenge = async (codeVerifier: string): Promise<string> => {
+  const data = new TextEncoder().encode(codeVerifier)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return encodeBase64Url(new Uint8Array(digest))
+}
+
+const getOAuthPKCEConfig = (
+  config: any
+): { required: boolean; method: OAuthPKCEMethod } => {
+  const required = Boolean(config?.pkce?.required)
+  if (!required) {
+    return { required: false, method: 'S256' }
+  }
+
+  const method = config?.pkce?.method || 'S256'
+  if (method !== 'S256' && method !== 'plain') {
+    throw new Error(`Unsupported PKCE method: ${method}`)
+  }
+
+  return {
+    required: true,
+    method
+  }
+}
+
+const generateOAuthPKCEParams = async (
+  method: OAuthPKCEMethod
+): Promise<{ codeVerifier: string; codeChallenge: string }> => {
+  const codeVerifier = generateCodeVerifier()
+
+  if (method === 'plain') {
+    return {
+      codeVerifier,
+      codeChallenge: codeVerifier
+    }
+  }
+
+  return {
+    codeVerifier,
+    codeChallenge: await generateS256CodeChallenge(codeVerifier)
+  }
+}
+
 function DashboardContent() {
   const router = useRouter()
   const { updateAutoLockTimer, autoLockTimer: globalAutoLockTimer } = useLock()
@@ -878,11 +949,40 @@ function DashboardContent() {
           }
 
           const redirectUri = 'http://localhost'
+          let pkceVerifier: string | undefined
+          let resolvedOAuthConfig = oAuthConfig
+
+          try {
+            const pkceConfig = getOAuthPKCEConfig(oAuthConfig)
+            if (pkceConfig.required) {
+              const pkceParams = await generateOAuthPKCEParams(pkceConfig.method)
+              pkceVerifier = pkceParams.codeVerifier
+              resolvedOAuthConfig = {
+                ...oAuthConfig,
+                extraParams: {
+                  ...(oAuthConfig.extraParams || {}),
+                  code_challenge: pkceParams.codeChallenge,
+                  code_challenge_method: pkceConfig.method
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Invalid PKCE configuration:', error)
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : 'Invalid PKCE configuration'
+            )
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+            return
+          }
 
           // Perform OAuth authorization through Electron
           const authResult = await (
             window as any
-          ).electronAPI.oauth.authorize(oAuthConfig)
+          ).electronAPI.oauth.authorize(resolvedOAuthConfig)
 
           console.log('🔍 Full auth result:', authResult)
 
@@ -913,6 +1013,14 @@ function DashboardContent() {
               dataType: 1
             }
           ]
+
+          if (pkceVerifier) {
+            authConf.push({
+              key: OAUTH_CODE_VERIFIER_KEY,
+              value: pkceVerifier,
+              dataType: 1
+            })
+          }
 
           if (mcpServerId && gatewayServerId) {
             // After successful authorization, notify core via socket
