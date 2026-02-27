@@ -11,6 +11,7 @@ import React, {
 } from 'react'
 import type { McpServerCapabilities } from '@/types/capabilities'
 import { useConfirmDialogStore } from '@/store/confirm-dialog-store'
+import { useApprovalQueueStore } from '@/store/approval-queue-store'
 import { useLock } from '@/contexts/lock-context'
 import { logger } from '@/lib/logger'
 
@@ -445,6 +446,26 @@ export function SocketProvider({
             }
             return updated
           })
+        } else if (notification.type === 'approval_created') {
+          // Handle approval request created
+          const approvalStore = useApprovalQueueStore.getState()
+          approvalStore.addRequest({ ...notification.data, coreConnectionId: config.id })
+        } else if (notification.type === 'approval_decided') {
+          // Handle approval decision
+          const approvalStore = useApprovalQueueStore.getState()
+          approvalStore.markDecided(notification.data.id, notification.data.decision)
+        } else if (notification.type === 'approval_expired') {
+          // Handle approval expiry
+          const approvalStore = useApprovalQueueStore.getState()
+          approvalStore.markExpired(notification.data.id)
+        } else if (notification.type === 'approval_executed') {
+          // Handle approval execution
+          const approvalStore = useApprovalQueueStore.getState()
+          approvalStore.markExecuted(notification.data.id)
+        } else if (notification.type === 'approval_failed') {
+          // Handle approval failure
+          const approvalStore = useApprovalQueueStore.getState()
+          approvalStore.markFailed(notification.data.id)
         }
       }
     )
