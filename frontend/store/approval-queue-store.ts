@@ -1,41 +1,55 @@
-import { create } from 'zustand'
+import { create } from 'zustand';
 
 /**
  * Approval request from peta-core
  */
 export interface ApprovalRequest {
-  id: string
-  toolName: string
-  serverId: string | null
-  redactedArgs: unknown
-  expiresAt: string
-  createdAt: string
-  status: string
-  uniformRequestId?: string | null
-  policyVersion: number
-  matchedRuleId: string | null
-  reason: string | null
-  coreConnectionId: string
+  id: string;
+  resumeToken?: string;
+  toolName: string;
+  serverId: string | null;
+  redactedArgs: unknown;
+  expiresAt: string;
+  createdAt: string;
+  status: string;
+  executionError?: string | null;
+  executionResultAvailable?: boolean;
+  executionResultPreview?: string | null;
+  uniformRequestId?: string | null;
+  policyVersion: number;
+  matchedRuleId: string | null;
+  reason: string | null;
+  coreConnectionId: string;
 }
 
 /**
  * Approval queue state
  */
 interface ApprovalQueueState {
-  requests: ApprovalRequest[]
-  isDrawerOpen: boolean
+  requests: ApprovalRequest[];
+  isDrawerOpen: boolean;
 
   // Actions
-  addRequest: (request: ApprovalRequest) => void
-  removeRequest: (id: string) => void
-  updateRequest: (id: string, updates: Partial<ApprovalRequest>) => void
-  markDecided: (id: string, decision: string) => void
-  markExpired: (id: string) => void
-  markExecuted: (id: string) => void
-  markFailed: (id: string) => void
-  setDrawerOpen: (open: boolean) => void
-  clearAll: () => void
-  pendingCount: () => number
+  addRequest: (request: ApprovalRequest) => void;
+  removeRequest: (id: string) => void;
+  updateRequest: (id: string, updates: Partial<ApprovalRequest>) => void;
+  markDecided: (id: string, decision: string) => void;
+  markExpired: (id: string) => void;
+  markExecuted: (
+    id: string,
+    payload?: { executionResultAvailable?: boolean; executionResultPreview?: string | null },
+  ) => void;
+  markFailed: (
+    id: string,
+    payload?: {
+      error?: string;
+      executionResultAvailable?: boolean;
+      executionResultPreview?: string | null;
+    },
+  ) => void;
+  setDrawerOpen: (open: boolean) => void;
+  clearAll: () => void;
+  pendingCount: () => number;
 }
 
 /**
@@ -47,120 +61,180 @@ export const useApprovalQueueStore = create<ApprovalQueueState>((set, get) => ({
 
   addRequest: (request) => {
     set((state) => {
-      const existingIdx = state.requests.findIndex((r) => r.id === request.id)
+      const existingIdx = state.requests.findIndex((r) => r.id === request.id);
       if (existingIdx >= 0) {
         // Merge: keep terminal status if placeholder was already decided
-        const existing = state.requests[existingIdx]
-        const merged = existing.status !== 'PENDING'
-          ? { ...request, status: existing.status }
-          : request
-        const updated = [...state.requests]
-        updated[existingIdx] = merged
-        return { requests: updated }
+        const existing = state.requests[existingIdx];
+        const merged =
+          existing.status !== 'PENDING' ? { ...request, status: existing.status } : request;
+        const updated = [...state.requests];
+        updated[existingIdx] = merged;
+        return { requests: updated };
       }
-      return { requests: [request, ...state.requests] }
-    })
+      return { requests: [request, ...state.requests] };
+    });
   },
 
   removeRequest: (id) => {
     set((state) => ({
-      requests: state.requests.filter((r) => r.id !== id)
-    }))
+      requests: state.requests.filter((r) => r.id !== id),
+    }));
   },
 
   updateRequest: (id, updates) => {
     set((state) => ({
-      requests: state.requests.map((r) =>
-        r.id === id ? { ...r, ...updates } : r
-      )
-    }))
+      requests: state.requests.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+    }));
   },
 
   markDecided: (id, decision) => {
     set((state) => {
-      const exists = state.requests.some((r) => r.id === id)
+      const exists = state.requests.some((r) => r.id === id);
       if (exists) {
         return {
-          requests: state.requests.map((r) =>
-            r.id === id ? { ...r, status: decision } : r
-          )
-        }
+          requests: state.requests.map((r) => (r.id === id ? { ...r, status: decision } : r)),
+        };
       }
       return {
         requests: [
-          { id, status: decision, toolName: 'Loading...', serverId: null, redactedArgs: null, expiresAt: new Date().toISOString(), createdAt: new Date().toISOString(), policyVersion: 0, matchedRuleId: null, reason: null, coreConnectionId: '' },
-          ...state.requests
-        ]
-      }
-    })
+          {
+            id,
+            status: decision,
+            toolName: 'Loading...',
+            serverId: null,
+            redactedArgs: null,
+            expiresAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            policyVersion: 0,
+            matchedRuleId: null,
+            reason: null,
+            coreConnectionId: '',
+          },
+          ...state.requests,
+        ],
+      };
+    });
   },
 
   markExpired: (id) => {
     set((state) => {
-      const exists = state.requests.some((r) => r.id === id)
+      const exists = state.requests.some((r) => r.id === id);
       if (exists) {
         return {
-          requests: state.requests.map((r) =>
-            r.id === id ? { ...r, status: 'EXPIRED' } : r
-          )
-        }
+          requests: state.requests.map((r) => (r.id === id ? { ...r, status: 'EXPIRED' } : r)),
+        };
       }
       return {
         requests: [
-          { id, status: 'EXPIRED', toolName: 'Loading...', serverId: null, redactedArgs: null, expiresAt: new Date().toISOString(), createdAt: new Date().toISOString(), policyVersion: 0, matchedRuleId: null, reason: null, coreConnectionId: '' },
-          ...state.requests
-        ]
-      }
-    })
+          {
+            id,
+            status: 'EXPIRED',
+            toolName: 'Loading...',
+            serverId: null,
+            redactedArgs: null,
+            expiresAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            policyVersion: 0,
+            matchedRuleId: null,
+            reason: null,
+            coreConnectionId: '',
+          },
+          ...state.requests,
+        ],
+      };
+    });
   },
 
-  markExecuted: (id) => {
+  markExecuted: (id, payload) => {
     set((state) => {
-      const exists = state.requests.some((r) => r.id === id)
+      const exists = state.requests.some((r) => r.id === id);
       if (exists) {
         return {
           requests: state.requests.map((r) =>
-            r.id === id ? { ...r, status: 'EXECUTED' } : r
-          )
-        }
+            r.id === id
+              ? {
+                  ...r,
+                  status: 'EXECUTED',
+                  executionResultAvailable:
+                    payload?.executionResultAvailable ?? r.executionResultAvailable,
+                  executionResultPreview:
+                    payload?.executionResultPreview ?? r.executionResultPreview,
+                }
+              : r,
+          ),
+        };
       }
       return {
         requests: [
-          { id, status: 'EXECUTED', toolName: 'Loading...', serverId: null, redactedArgs: null, expiresAt: new Date().toISOString(), createdAt: new Date().toISOString(), policyVersion: 0, matchedRuleId: null, reason: null, coreConnectionId: '' },
-          ...state.requests
-        ]
-      }
-    })
+          {
+            id,
+            status: 'EXECUTED',
+            toolName: 'Loading...',
+            serverId: null,
+            redactedArgs: null,
+            expiresAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            policyVersion: 0,
+            matchedRuleId: null,
+            reason: null,
+            coreConnectionId: '',
+          },
+          ...state.requests,
+        ],
+      };
+    });
   },
 
-  markFailed: (id) => {
+  markFailed: (id, payload) => {
     set((state) => {
-      const exists = state.requests.some((r) => r.id === id)
+      const exists = state.requests.some((r) => r.id === id);
       if (exists) {
         return {
           requests: state.requests.map((r) =>
-            r.id === id ? { ...r, status: 'FAILED' } : r
-          )
-        }
+            r.id === id
+              ? {
+                  ...r,
+                  status: 'FAILED',
+                  executionError: payload?.error ?? r.executionError,
+                  executionResultAvailable:
+                    payload?.executionResultAvailable ?? r.executionResultAvailable,
+                  executionResultPreview:
+                    payload?.executionResultPreview ?? r.executionResultPreview,
+                }
+              : r,
+          ),
+        };
       }
       return {
         requests: [
-          { id, status: 'FAILED', toolName: 'Loading...', serverId: null, redactedArgs: null, expiresAt: new Date().toISOString(), createdAt: new Date().toISOString(), policyVersion: 0, matchedRuleId: null, reason: null, coreConnectionId: '' },
-          ...state.requests
-        ]
-      }
-    })
+          {
+            id,
+            status: 'FAILED',
+            toolName: 'Loading...',
+            serverId: null,
+            redactedArgs: null,
+            expiresAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            policyVersion: 0,
+            matchedRuleId: null,
+            reason: null,
+            coreConnectionId: '',
+          },
+          ...state.requests,
+        ],
+      };
+    });
   },
 
   setDrawerOpen: (open) => {
-    set({ isDrawerOpen: open })
+    set({ isDrawerOpen: open });
   },
 
   clearAll: () => {
-    set({ requests: [] })
+    set({ requests: [] });
   },
 
   pendingCount: () => {
-    return get().requests.filter((r) => r.status === 'PENDING').length
-  }
-}))
+    return get().requests.filter((r) => r.status === 'PENDING').length;
+  },
+}));

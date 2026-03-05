@@ -1,20 +1,17 @@
-'use client'
+'use client';
 
-import { useState, useEffect, useCallback } from 'react'
-import {
-  useApprovalQueueStore,
-  type ApprovalRequest
-} from '@/store/approval-queue-store'
+import { useState, useEffect, useCallback } from 'react';
+import { useApprovalQueueStore, type ApprovalRequest } from '@/store/approval-queue-store';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription
-} from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
   Shield,
   Check,
@@ -26,45 +23,45 @@ import {
   CheckCircle2,
   XCircle,
   Zap,
-  Timer
-} from 'lucide-react'
-import { toast } from 'sonner'
-import { useSocket } from '@/contexts/socket-context'
+  Timer,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { useSocket } from '@/contexts/socket-context';
 
 /**
  * Format a relative time string from a date
  */
 function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
 
-  if (diffSec < 60) return `${diffSec}s ago`
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return `${diffHr}h ago`
-  const diffDay = Math.floor(diffHr / 24)
-  return `${diffDay}d ago`
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay}d ago`;
 }
 
 /**
  * Format expiry countdown
  */
 function formatExpiry(expiresAt: string): string {
-  const expiry = new Date(expiresAt)
-  const now = new Date()
-  const diffMs = expiry.getTime() - now.getTime()
+  const expiry = new Date(expiresAt);
+  const now = new Date();
+  const diffMs = expiry.getTime() - now.getTime();
 
-  if (diffMs <= 0) return 'Expired'
+  if (diffMs <= 0) return 'Expired';
 
-  const diffSec = Math.floor(diffMs / 1000)
-  if (diffSec < 60) return `${diffSec}s left`
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m left`
-  const diffHr = Math.floor(diffMin / 60)
-  return `${diffHr}h ${diffMin % 60}m left`
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return `${diffSec}s left`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m left`;
+  const diffHr = Math.floor(diffMin / 60);
+  return `${diffHr}h ${diffMin % 60}m left`;
 }
 
 /**
@@ -74,52 +71,63 @@ function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case 'PENDING':
       return (
-        <Badge variant="outline" className="border-yellow-400 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20">
+        <Badge
+          variant="outline"
+          className="border-yellow-400 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20"
+        >
           <Clock className="h-3 w-3 mr-1" />
           Pending
         </Badge>
-      )
+      );
     case 'APPROVED':
       return (
-        <Badge variant="outline" className="border-green-400 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20">
+        <Badge
+          variant="outline"
+          className="border-green-400 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
+        >
           <Check className="h-3 w-3 mr-1" />
           Approved
         </Badge>
-      )
+      );
     case 'REJECTED':
       return (
-        <Badge variant="outline" className="border-red-400 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20">
+        <Badge
+          variant="outline"
+          className="border-red-400 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
+        >
           <X className="h-3 w-3 mr-1" />
           Rejected
         </Badge>
-      )
+      );
     case 'EXPIRED':
       return (
-        <Badge variant="outline" className="border-gray-400 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20">
+        <Badge
+          variant="outline"
+          className="border-gray-400 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20"
+        >
           <Timer className="h-3 w-3 mr-1" />
           Expired
         </Badge>
-      )
+      );
     case 'EXECUTED':
       return (
-        <Badge variant="outline" className="border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20">
+        <Badge
+          variant="outline"
+          className="border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+        >
           <Zap className="h-3 w-3 mr-1" />
           Executed
         </Badge>
-      )
+      );
     case 'FAILED':
       return (
         <Badge variant="destructive">
           <XCircle className="h-3 w-3 mr-1" />
           Failed
         </Badge>
-      )
+      );
     default:
-      return (
-        <Badge variant="secondary">
-          {status}
-        </Badge>
-      )
+      return <Badge variant="secondary">{status}</Badge>;
   }
 }
 
@@ -130,30 +138,30 @@ function ApprovalItem({
   request,
   onApprove,
   onReject,
-  isDeciding = false
+  isDeciding = false,
 }: {
-  request: ApprovalRequest
-  onApprove: (id: string) => void
-  onReject: (id: string) => void
-  isDeciding?: boolean
+  request: ApprovalRequest;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  isDeciding?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const [expiryText, setExpiryText] = useState(() => formatExpiry(request.expiresAt))
-  const isExpired = new Date(request.expiresAt).getTime() < Date.now()
-  const isPending = request.status === 'PENDING' && !isExpired
-  const displayStatus = isExpired && request.status === 'PENDING' ? 'EXPIRED' : request.status
-  const canAct = isPending && !isDeciding
+  const [expanded, setExpanded] = useState(false);
+  const [expiryText, setExpiryText] = useState(() => formatExpiry(request.expiresAt));
+  const isExpired = new Date(request.expiresAt).getTime() < Date.now();
+  const isPending = request.status === 'PENDING' && !isExpired;
+  const displayStatus = isExpired && request.status === 'PENDING' ? 'EXPIRED' : request.status;
+  const canAct = isPending && !isDeciding;
 
   // Update expiry countdown every second for pending items
   useEffect(() => {
-    if (!isPending) return
+    if (!isPending) return;
 
     const interval = setInterval(() => {
-      setExpiryText(formatExpiry(request.expiresAt))
-    }, 1000)
+      setExpiryText(formatExpiry(request.expiresAt));
+    }, 1000);
 
-    return () => clearInterval(interval)
-  }, [isPending, request.expiresAt])
+    return () => clearInterval(interval);
+  }, [isPending, request.expiresAt]);
 
   return (
     <div
@@ -161,7 +169,7 @@ function ApprovalItem({
         'border rounded-lg p-3 space-y-2 transition-colors',
         isPending
           ? 'border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-900/10'
-          : 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50'
+          : 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50',
       )}
     >
       {/* Header row */}
@@ -181,9 +189,7 @@ function ApprovalItem({
             )}
             <span>{formatRelativeTime(request.createdAt)}</span>
             {isPending && (
-              <span className="text-yellow-600 dark:text-yellow-400 font-medium">
-                {expiryText}
-              </span>
+              <span className="text-yellow-600 dark:text-yellow-400 font-medium">{expiryText}</span>
             )}
           </div>
           {request.reason && (
@@ -191,10 +197,22 @@ function ApprovalItem({
               {request.reason}
             </p>
           )}
+          {displayStatus === 'FAILED' && request.executionError && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1 truncate">
+              {request.executionError}
+            </p>
+          )}
+          {(displayStatus === 'EXECUTED' || displayStatus === 'FAILED') &&
+            request.executionResultAvailable && (
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                Result available. Retry the same tool call with this resume token.
+              </p>
+            )}
         </div>
 
         {/* Expand toggle */}
         <button
+          type="button"
           onClick={() => setExpanded(!expanded)}
           className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
           aria-label={expanded ? 'Collapse details' : 'Expand details'}
@@ -218,6 +236,21 @@ function ApprovalItem({
         </div>
       )}
 
+      {expanded && request.executionResultPreview && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-2 overflow-auto max-h-32">
+          <p className="text-[11px] text-blue-700 dark:text-blue-300 mb-1">Execution preview</p>
+          <pre className="text-xs text-blue-900 dark:text-blue-100 whitespace-pre-wrap break-words font-mono">
+            {request.executionResultPreview}
+          </pre>
+        </div>
+      )}
+
+      {expanded && (
+        <div className="text-[11px] text-gray-500 dark:text-gray-400 font-mono break-all">
+          Resume token: {request.resumeToken || request.id}
+        </div>
+      )}
+
       {/* Action buttons for pending items */}
       {isPending && (
         <div className="flex gap-2 pt-1">
@@ -227,7 +260,7 @@ function ApprovalItem({
             disabled={!canAct}
             className={cn(
               'flex-1 h-8 text-xs border-green-300 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20',
-              isDeciding && 'opacity-50 cursor-not-allowed'
+              isDeciding && 'opacity-50 cursor-not-allowed',
             )}
             onClick={() => onApprove(request.id)}
           >
@@ -240,7 +273,7 @@ function ApprovalItem({
             disabled={!canAct}
             className={cn(
               'flex-1 h-8 text-xs border-red-300 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20',
-              isDeciding && 'opacity-50 cursor-not-allowed'
+              isDeciding && 'opacity-50 cursor-not-allowed',
             )}
             onClick={() => onReject(request.id)}
           >
@@ -250,18 +283,19 @@ function ApprovalItem({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 /**
  * Approval queue trigger button with pending count badge
  */
 export function ApprovalQueueTrigger() {
-  const pendingCount = useApprovalQueueStore((s) => s.pendingCount())
-  const setDrawerOpen = useApprovalQueueStore((s) => s.setDrawerOpen)
+  const pendingCount = useApprovalQueueStore((s) => s.pendingCount());
+  const setDrawerOpen = useApprovalQueueStore((s) => s.setDrawerOpen);
 
   return (
     <button
+      type="button"
       onClick={() => setDrawerOpen(true)}
       className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       aria-label="Approval queue"
@@ -273,113 +307,107 @@ export function ApprovalQueueTrigger() {
         </span>
       )}
     </button>
-  )
+  );
 }
 
 /**
  * Approval queue drawer component
  */
 export function ApprovalQueueDrawer() {
-  const requests = useApprovalQueueStore((s) => s.requests)
-  const isDrawerOpen = useApprovalQueueStore((s) => s.isDrawerOpen)
-  const setDrawerOpen = useApprovalQueueStore((s) => s.setDrawerOpen)
-  const { sendMessage } = useSocket()
-  const [showHistory, setShowHistory] = useState(false)
-  const [decidingIds, setDecidingIds] = useState<Set<string>>(new Set())
+  const requests = useApprovalQueueStore((s) => s.requests);
+  const isDrawerOpen = useApprovalQueueStore((s) => s.isDrawerOpen);
+  const setDrawerOpen = useApprovalQueueStore((s) => s.setDrawerOpen);
+  const { sendMessage } = useSocket();
+  const [showHistory, setShowHistory] = useState(false);
+  const [decidingIds, setDecidingIds] = useState<Set<string>>(new Set());
 
-  const pendingRequests = requests.filter((r) => r.status === 'PENDING')
-  const historyRequests = requests.filter((r) => r.status !== 'PENDING')
+  const pendingRequests = requests.filter((r) => r.status === 'PENDING');
+  const historyRequests = requests.filter((r) => r.status !== 'PENDING');
 
   const handleApprove = useCallback(
     (id: string) => {
-      const request = useApprovalQueueStore
-        .getState()
-        .requests.find((r) => r.id === id)
-      if (!request) return
+      const request = useApprovalQueueStore.getState().requests.find((r) => r.id === id);
+      if (!request) return;
 
-      setDecidingIds((prev) => new Set(prev).add(id))
+      setDecidingIds((prev) => new Set(prev).add(id));
 
-      const sent = sendMessage(
-        request.coreConnectionId,
-        'approval_decide',
-        { id: request.id, decision: 'APPROVED' }
-      )
+      const sent = sendMessage(request.coreConnectionId, 'approval_decide', {
+        id: request.id,
+        decision: 'APPROVED',
+      });
 
       if (sent) {
-        toast.success(`Approved: ${request.toolName}`)
+        toast.success(`Approved: ${request.toolName}`);
       } else {
-        toast.error('Failed to send approval — server may be disconnected')
+        toast.error('Failed to send approval — server may be disconnected');
         setDecidingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       }
     },
-    [sendMessage]
-  )
+    [sendMessage],
+  );
 
   const handleReject = useCallback(
     (id: string) => {
-      const request = useApprovalQueueStore
-        .getState()
-        .requests.find((r) => r.id === id)
-      if (!request) return
+      const request = useApprovalQueueStore.getState().requests.find((r) => r.id === id);
+      if (!request) return;
 
-      setDecidingIds((prev) => new Set(prev).add(id))
+      setDecidingIds((prev) => new Set(prev).add(id));
 
-      const sent = sendMessage(
-        request.coreConnectionId,
-        'approval_decide',
-        { id: request.id, decision: 'REJECTED' }
-      )
+      const sent = sendMessage(request.coreConnectionId, 'approval_decide', {
+        id: request.id,
+        decision: 'REJECTED',
+      });
 
       if (sent) {
-        toast.success(`Rejected: ${request.toolName}`)
+        toast.success(`Rejected: ${request.toolName}`);
       } else {
-        toast.error('Failed to send rejection — server may be disconnected')
+        toast.error('Failed to send rejection — server may be disconnected');
         setDecidingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       }
     },
-    [sendMessage]
-  )
+    [sendMessage],
+  );
 
   // Clear decidingIds when requests change status (server responded)
   useEffect(() => {
     setDecidingIds((prev) => {
-      if (prev.size === 0) return prev
-      const next = new Set(prev)
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
       for (const id of prev) {
-        const req = requests.find((r) => r.id === id)
+        const req = requests.find((r) => r.id === id);
         if (!req || req.status !== 'PENDING') {
-          next.delete(id)
+          next.delete(id);
         }
       }
-      return next.size === prev.size ? prev : next
-    })
-  }, [requests])
+      return next.size === prev.size ? prev : next;
+    });
+  }, [requests]);
 
   // Auto-remove expired items after 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      const store = useApprovalQueueStore.getState()
-      const now = Date.now()
+      const store = useApprovalQueueStore.getState();
+      const now = Date.now();
       store.requests.forEach((r) => {
         if (r.status === 'EXPIRED') {
-          const expiredAt = new Date(r.expiresAt).getTime()
+          const expiredAt = new Date(r.expiresAt).getTime();
           if (now - expiredAt > 30000) {
-            store.removeRequest(r.id)
+            store.removeRequest(r.id);
           }
         }
-      })
-    }, 5000)
+      });
+    }, 5000);
 
-    return () => clearInterval(interval)
-  }, [])
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <Sheet open={isDrawerOpen} onOpenChange={setDrawerOpen}>
@@ -425,9 +453,7 @@ export function ApprovalQueueDrawer() {
           {pendingRequests.length === 0 && historyRequests.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Shield className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                No approval requests
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No approval requests</p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 Requests will appear here when tools require approval
               </p>
@@ -438,6 +464,7 @@ export function ApprovalQueueDrawer() {
           {historyRequests.length > 0 && (
             <div className="space-y-2">
               <button
+                type="button"
                 onClick={() => setShowHistory(!showHistory)}
                 className="flex items-center gap-2 w-full text-left"
               >
@@ -472,8 +499,8 @@ export function ApprovalQueueDrawer() {
               size="sm"
               className="w-full text-xs text-gray-500"
               onClick={() => {
-                useApprovalQueueStore.getState().clearAll()
-                toast.success('Approval queue cleared')
+                useApprovalQueueStore.getState().clearAll();
+                toast.success('Approval queue cleared');
               }}
             >
               Clear All
@@ -482,5 +509,5 @@ export function ApprovalQueueDrawer() {
         )}
       </SheetContent>
     </Sheet>
-  )
+  );
 }

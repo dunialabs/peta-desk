@@ -461,11 +461,18 @@ export function SocketProvider({
         } else if (notification.type === 'approval_executed') {
           // Handle approval execution
           const approvalStore = useApprovalQueueStore.getState()
-          approvalStore.markExecuted(notification.data.id)
+          approvalStore.markExecuted(notification.data.id, {
+            executionResultAvailable: notification.data.executionResultAvailable,
+            executionResultPreview: notification.data.executionResultPreview ?? null,
+          })
         } else if (notification.type === 'approval_failed') {
           // Handle approval failure
           const approvalStore = useApprovalQueueStore.getState()
-          approvalStore.markFailed(notification.data.id)
+          approvalStore.markFailed(notification.data.id, {
+            error: notification.data.error,
+            executionResultAvailable: notification.data.executionResultAvailable,
+            executionResultPreview: notification.data.executionResultPreview ?? null,
+          })
         }
       }
     )
