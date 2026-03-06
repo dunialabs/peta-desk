@@ -412,7 +412,7 @@ export function ApprovalQueueDrawer() {
   return (
     <Sheet open={isDrawerOpen} onOpenChange={setDrawerOpen}>
       <SheetContent side="right" className="w-[380px] sm:w-[420px] flex flex-col p-0">
-        <SheetHeader className="px-4 pt-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+        <SheetHeader className="pl-4 pr-14 pt-4 pb-2 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-gray-700 dark:text-gray-300" />
             <SheetTitle className="text-base">Approval Queue</SheetTitle>
