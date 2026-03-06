@@ -180,6 +180,12 @@ export function SocketProvider({
     socket: any
   } | null>(null)
 
+  const focusWindowIfAvailable = useCallback(async () => {
+    if (typeof window !== 'undefined' && window.electron?.focusWindow) {
+      await window.electron.focusWindow().catch(() => {})
+    }
+  }, [])
+
   /**
    * Create and configure Socket connection
    */
@@ -397,7 +403,7 @@ export function SocketProvider({
     // Listen for notifications
     socket.on(
       'notification',
-      (notification: Omit<SocketNotification, 'serverId'>) => {
+      async (notification: Omit<SocketNotification, 'serverId'>) => {
         setNotifications((prev) => [
           {
             ...notification,
@@ -450,6 +456,9 @@ export function SocketProvider({
           // Handle approval request created
           const approvalStore = useApprovalQueueStore.getState()
           approvalStore.addRequest({ ...notification.data, coreConnectionId: config.id })
+          if (notification.data?.status === 'PENDING') {
+            await focusWindowIfAvailable()
+          }
         } else if (notification.type === 'approval_decided') {
           // Handle approval decision
           const approvalStore = useApprovalQueueStore.getState()
@@ -494,16 +503,12 @@ export function SocketProvider({
       // Check if app is in locked state
       if (isLocked) {
         setPendingConfirmRequest({ config, request, socket })
-        if (typeof window !== 'undefined' && window.electron?.focusWindow) {
-          await window.electron.focusWindow().catch(() => {})
-        }
+        await focusWindowIfAvailable()
         return
       }
 
       // Show window first so user can see it
-      if (typeof window !== 'undefined' && window.electron?.focusWindow) {
-        await window.electron.focusWindow().catch(() => {})
-      }
+      await focusWindowIfAvailable()
 
       // Use global confirmation dialog
       if (typeof window !== 'undefined') {
@@ -580,7 +585,7 @@ export function SocketProvider({
     })
 
     return socket
-  }, [])
+  }, [focusWindowIfAvailable])
 
   /**
    * Connect to server
