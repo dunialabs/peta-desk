@@ -37,6 +37,14 @@ import { LoadingSpinner } from '@/components/icons/loading-spinner'
 import { ServerAuthType, ServerCategory } from '@/types/capabilities'
 import { headers } from 'next/headers'
 
+type StoredServer = {
+  id: string
+  serverName?: string
+  serverUrl?: string
+  token?: string
+  configuredApps?: string[]
+}
+
 const timeOptions = [
   { label: '5 min', value: 5 },
   { label: '15 min', value: 15 },
@@ -147,6 +155,9 @@ function DashboardContent() {
   const [serverClients, setServerClients] = useState<
     Record<string, MCPClient[]>
   >({})
+  const [storedServers, setStoredServers] = useState<StoredServer[] | null>(
+    null
+  )
   const [isLoading, setIsLoading] = useState(true)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [autoLockTimer, setAutoLockTimer] = useState(globalAutoLockTimer)
@@ -174,14 +185,12 @@ function DashboardContent() {
     new Set()
   ) // Track which servers are currently reconnecting
 
-  // Get all servers (including failed connections)
-  const getAllServers = useCallback((): string[] => {
-    // Get all server IDs from localStorage mcpServers
+  const readStoredServers = useCallback((): StoredServer[] => {
     if (typeof window === 'undefined') return []
 
     try {
       const mcpServers = JSON.parse(localStorage.getItem('mcpServers') || '[]')
-      return mcpServers.map((s: any) => s.id)
+      return Array.isArray(mcpServers) ? mcpServers : []
     } catch (error) {
       console.error('Failed to parse mcpServers:', error)
       return []
@@ -190,7 +199,18 @@ function DashboardContent() {
 
   // Load data for all servers
   const loadAllServersData = useCallback(async () => {
-    const allServers = getAllServers()
+    const currentStoredServers = readStoredServers()
+    const allServers = currentStoredServers.map((server) => server.id)
+
+    setStoredServers(currentStoredServers)
+    setConfiguredApps(
+      currentStoredServers.reduce<Record<string, string[]>>((configured, server) => {
+        configured[server.id] = Array.isArray(server.configuredApps)
+          ? server.configuredApps
+          : []
+        return configured
+      }, {})
+    )
 
     // Update tray icon based on servers status
     if (window.electron?.updateServersStatus) {
@@ -242,33 +262,12 @@ function DashboardContent() {
     }
     // Removed connections dependency to avoid reloading on every change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getAllServers, getCapabilities])
-
-  // Load configured apps from localStorage
-  const loadConfiguredApps = useCallback(() => {
-    try {
-      const mcpServers = JSON.parse(localStorage.getItem('mcpServers') || '[]')
-      const configured: Record<string, string[]> = {}
-
-      for (const server of mcpServers) {
-        if (server.configuredApps && Array.isArray(server.configuredApps)) {
-          configured[server.id] = server.configuredApps
-        } else {
-          configured[server.id] = []
-        }
-      }
-
-      setConfiguredApps(configured)
-    } catch (error) {
-      console.error('Failed to load configured apps:', error)
-    }
-  }, [])
+  }, [getCapabilities, readStoredServers])
 
   // Load data
   useEffect(() => {
     loadAllServersData()
-    loadConfiguredApps()
-  }, [loadAllServersData, loadConfiguredApps])
+  }, [loadAllServersData])
 
   // Check for single reconnect data after returning from unlock-password page
   useEffect(() => {
@@ -548,6 +547,7 @@ function DashboardContent() {
           return s
         })
         localStorage.setItem('mcpServers', JSON.stringify(updatedServers))
+        setStoredServers(updatedServers)
 
         // Update state
         setConfiguredApps((prev) => ({
@@ -678,6 +678,11 @@ function DashboardContent() {
       if (window.electron?.updateConnectionStatus) {
         window.electron.updateConnectionStatus(false)
       }
+
+      setStoredServers([])
+      setConfiguredApps({})
+      setServerClients({})
+      setIsLoading(false)
 
       console.log('All cache and data cleared successfully')
       alert(
@@ -1696,7 +1701,8 @@ function DashboardContent() {
     )
   }
 
-  const allServers = getAllServers()
+  const allServers = storedServers?.map((server) => server.id) ?? []
+  const isServerSnapshotReady = storedServers !== null
 
   return (
     <TooltipProvider>
@@ -1704,7 +1710,15 @@ function DashboardContent() {
         <Header showSettingsButton={true} />
 
         <div className="mx-auto px-[8px]">
-          {allServers.length === 0 && (
+          {!isServerSnapshotReady && (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-gray-500 dark:text-gray-400">
+                Loading dashboard...
+              </div>
+            </div>
+          )}
+
+          {isServerSnapshotReady && allServers.length === 0 && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="text-gray-500 dark:text-gray-400 mb-4">
                 No Gateway servers connected
@@ -1718,7 +1732,7 @@ function DashboardContent() {
             </div>
           )}
 
-          {isLoading && allServers.length > 0 && (
+          {isServerSnapshotReady && isLoading && allServers.length > 0 && (
             <div className="flex items-center justify-center py-8">
               <div className="text-gray-500 dark:text-gray-400">
                 Loading dashboard data...
@@ -1727,25 +1741,18 @@ function DashboardContent() {
           )}
 
           {/* Loop through each server */}
-          {!isLoading &&
+          {isServerSnapshotReady &&
+            !isLoading &&
             allServers.map((gatewayServerId) => {
               const connection = connections.get(gatewayServerId)
+              const storedServer = storedServers.find(
+                (server) => server.id === gatewayServerId
+              )
 
-              // Get server info from localStorage if not in connections
-              let serverName = connection?.serverName
-              if (!serverName) {
-                try {
-                  const mcpServers = JSON.parse(
-                    localStorage.getItem('mcpServers') || '[]'
-                  )
-                  const server = mcpServers.find(
-                    (s: any) => s.id === gatewayServerId
-                  )
-                  serverName = server?.serverName || gatewayServerId
-                } catch {
-                  serverName = gatewayServerId
-                }
-              }
+              const serverName =
+                connection?.serverName ||
+                storedServer?.serverName ||
+                gatewayServerId
 
               const activeClientsCount = connection?.activeClientsCount ?? 0
               const connectionExists = !!connection

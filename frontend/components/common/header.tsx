@@ -11,6 +11,7 @@
 import { useLock } from '@/contexts/lock-context'
 import { ThemeToggle } from '@/components/common/theme-toggle'
 import { useTheme } from '@/contexts/theme-context'
+import { ApprovalQueueTrigger } from '@/components/common/approval-queue-drawer'
 
 interface HeaderProps {
   showSettingsButton?: boolean // Toggle settings button; default false
@@ -49,6 +50,9 @@ export default function Header({
       <div className="flex items-center gap-2" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         {/* Theme toggle */}
         <ThemeToggle />
+
+        {/* Approval queue trigger */}
+        <ApprovalQueueTrigger />
 
         {/* Back/Reset button - visible only when showBackButton is true */}
         {showBackButton && onBack && (
