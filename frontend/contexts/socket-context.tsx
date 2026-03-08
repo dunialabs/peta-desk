@@ -201,12 +201,21 @@ export function SocketProvider({
       auth: {
         token: config.token
       },
+      // extraHeaders: send the Bearer token as an HTTP header for LB sticky session
+      // affinity. Load balancers can use the Authorization header to route all
+      // requests from the same client to the same backend instance.
+      extraHeaders: {
+        Authorization: `Bearer ${config.token}`
+      },
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 10000,
-      transports: ['websocket', 'polling'],
+      // Use websocket-only transport for LB compatibility.
+      // Polling requires sticky sessions at the HTTP level which is harder to
+      // guarantee during the polling→websocket upgrade handshake.
+      transports: ['websocket'] as string[],
       // IMPORTANT: Force new Manager for each connection to avoid multiplex issues
       // When connecting to same URL with different tokens, we need separate connections
       forceNew: true,
@@ -1462,13 +1471,3 @@ export function useSocket(): SocketContextType {
   return context
 }
 
-/**
- * Extend Window interface
- */
-declare global {
-  interface Window {
-    socketIO: {
-      createConnection: (url: string, options?: any) => any
-    }
-  }
-}

@@ -246,10 +246,19 @@ if (io) {
   contextBridge.exposeInMainWorld('socketIO', {
     // Create socket connection
     createConnection: (serverId, url, options) => {
-      console.log(`[Preload] ============ Creating Socket Connection ============`)
       console.log(`[Preload] Server ID: ${serverId}`)
       console.log(`[Preload] URL: ${url}`)
-      console.log(`[Preload] Options:`, JSON.stringify(options, null, 2))
+      // Redact sensitive fields (Authorization header, auth token) from log output
+      const safeOptions = options ? {
+        ...options,
+        extraHeaders: options.extraHeaders
+          ? { ...options.extraHeaders, Authorization: '[REDACTED]' }
+          : undefined,
+        auth: options.auth
+          ? { token: '[REDACTED]' }
+          : undefined
+      } : options
+      console.log(`[Preload] Options:`, JSON.stringify(safeOptions, null, 2))
       console.log(`[Preload] Current active sockets: ${sockets.size}`)
       console.log(`[Preload] Active socket IDs:`, Array.from(sockets.keys()))
 

@@ -1611,9 +1611,12 @@ ipcMain.handle('test-mcp-server', async (event, { address, accessToken }) => {
         auth: {
           token: accessToken
         },
+        extraHeaders: {
+          Authorization: `Bearer ${accessToken}`
+        },
         reconnection: false,
         timeout: 5000,
-        transports: ['websocket', 'polling']
+        transports: ['websocket']
       })
 
       // Connection successful

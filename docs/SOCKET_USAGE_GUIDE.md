@@ -28,7 +28,7 @@ Quick guide for working with MCP sockets in this project.
 
 ## Files to Know
 - Electron: `electron/socket-client.js`, `electron/main.js`, `electron/preload.js`
-- Frontend: `frontend/contexts/socket-context.tsx`, `frontend/lib/socket-utils.ts`, `frontend/app/(dashboard)/dashboard/page.tsx`
+- Frontend: `frontend/contexts/socket-context.tsx`, `frontend/app/(dashboard)/dashboard/page.tsx`
 
 ## Testing
 - Multiple simultaneous connections with different tokens on the same URL.
