@@ -19,6 +19,7 @@ import { ReconnectPasswordHandler } from '@/components/common/reconnect-password
 import { UnlockProvider } from '@/contexts/unlock-context'
 import { ProtocolUrlHandler } from '@/components/common/protocol-url-handler'
 import { ThemeProvider } from '@/contexts/theme-context'
+import { ApprovalQueueDrawer } from '@/components/common/approval-queue-drawer'
 
 export const metadata: Metadata = {
   title: 'MCP Desktop Application',
@@ -74,6 +75,7 @@ export default function RootLayout({
                   </ServerConfigProvider>
                   <Toaster />
                   <ConfirmDialog />
+                  <ApprovalQueueDrawer />
                   <ReconnectPasswordHandler />
                   <ProtocolUrlHandler />
                 </SocketProvider>

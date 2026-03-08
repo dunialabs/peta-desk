@@ -1232,13 +1232,25 @@ ipcMain.handle('backup:downloadBackup', async (event, filename) => {
 
 // ==================== OAuth Authorization API ====================
 
-const OAUTH_REDIRECT_URI = 'http://localhost'
+const DEFAULT_OAUTH_REDIRECT_URI = 'http://localhost'
 
-function buildAuthorizationUrl(config) {
+function getOAuthRedirectUri(config) {
+  if (
+    config &&
+    typeof config.redirectUri === 'string' &&
+    config.redirectUri.trim() !== ''
+  ) {
+    return config.redirectUri
+  }
+
+  return DEFAULT_OAUTH_REDIRECT_URI
+}
+
+function buildAuthorizationUrl(config, redirectUri) {
   const url = new URL(config.authorizationUrl)
 
   url.searchParams.set('client_id', config.deskClientId)
-  url.searchParams.set('redirect_uri', OAUTH_REDIRECT_URI)
+  url.searchParams.set('redirect_uri', redirectUri)
   url.searchParams.set('response_type', config.responseType)
 
   if (config.scopes && config.scopes !== '') {
@@ -1284,7 +1296,8 @@ ipcMain.handle('oauth:authorize', async (event, config) => {
       throw new Error('responseType is required')
     }
 
-    const authUrl = buildAuthorizationUrl(config)
+    const redirectUri = getOAuthRedirectUri(config)
+    const authUrl = buildAuthorizationUrl(config, redirectUri)
 
     return await new Promise((resolve) => {
       let isHandled = false
@@ -1331,7 +1344,7 @@ ipcMain.handle('oauth:authorize', async (event, config) => {
         } else if (!code) {
           resolve({ success: false, error: 'Authorization code not found' })
         } else {
-          resolve({ success: true, code, redirectUri: OAUTH_REDIRECT_URI })
+          resolve({ success: true, code, redirectUri })
         }
 
         if (!authWindow.isDestroyed()) {
@@ -1340,14 +1353,14 @@ ipcMain.handle('oauth:authorize', async (event, config) => {
       }
 
       authWindow.webContents.on('will-redirect', (event, url) => {
-        if (url.startsWith(OAUTH_REDIRECT_URI)) {
+        if (url.startsWith(redirectUri)) {
           event.preventDefault()
           handleCallbackUrl(url)
         }
       })
 
       authWindow.webContents.on('will-navigate', (event, url) => {
-        if (url.startsWith(OAUTH_REDIRECT_URI)) {
+        if (url.startsWith(redirectUri)) {
           event.preventDefault()
           handleCallbackUrl(url)
         }

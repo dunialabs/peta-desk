@@ -57,7 +57,14 @@ const NotificationTypes = {
   // Server status
   SERVER_STATUS_CHANGE: 'server_status_change',
   MCP_SERVER_ONLINE: 'mcp_server_online',
-  MCP_SERVER_OFFLINE: 'mcp_server_offline'
+  MCP_SERVER_OFFLINE: 'mcp_server_offline',
+
+  // Approval workflow
+  APPROVAL_CREATED: 'approval_created',
+  APPROVAL_DECIDED: 'approval_decided',
+  APPROVAL_EXPIRED: 'approval_expired',
+  APPROVAL_EXECUTED: 'approval_executed',
+  APPROVAL_FAILED: 'approval_failed'
 }
 
 /**

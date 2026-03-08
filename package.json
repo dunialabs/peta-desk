@@ -1,6 +1,6 @@
 {
   "name": "Peta-Desk",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Peta Desk - Model Context Protocol Desktop Application",
   "main": "electron/main.js",
   "scripts": {

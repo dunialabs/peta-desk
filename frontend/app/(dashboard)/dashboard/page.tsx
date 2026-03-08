@@ -37,6 +37,14 @@ import { LoadingSpinner } from '@/components/icons/loading-spinner'
 import { ServerAuthType, ServerCategory } from '@/types/capabilities'
 import { headers } from 'next/headers'
 
+type StoredServer = {
+  id: string
+  serverName?: string
+  serverUrl?: string
+  token?: string
+  configuredApps?: string[]
+}
+
 const timeOptions = [
   { label: '5 min', value: 5 },
   { label: '15 min', value: 15 },
@@ -59,6 +67,77 @@ const dangerLevelOptions = [
   { label: 'Approval', value: DangerLevel.Approval }
 ]
 
+const OAUTH_CODE_VERIFIER_KEY = 'YOUR_OAUTH_PKCE_VERIFIER'
+const PKCE_VERIFIER_CHARSET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
+const PKCE_VERIFIER_LENGTH = 96
+
+type OAuthPKCEMethod = 'S256' | 'plain'
+
+const encodeBase64Url = (input: Uint8Array): string => {
+  let binary = ''
+  for (const byte of input) {
+    binary += String.fromCharCode(byte)
+  }
+
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+const generateCodeVerifier = (): string => {
+  const randomBytes = new Uint8Array(PKCE_VERIFIER_LENGTH)
+  crypto.getRandomValues(randomBytes)
+
+  let verifier = ''
+  for (const randomByte of randomBytes) {
+    verifier += PKCE_VERIFIER_CHARSET[randomByte % PKCE_VERIFIER_CHARSET.length]
+  }
+
+  return verifier
+}
+
+const generateS256CodeChallenge = async (codeVerifier: string): Promise<string> => {
+  const data = new TextEncoder().encode(codeVerifier)
+  const digest = await crypto.subtle.digest('SHA-256', data)
+  return encodeBase64Url(new Uint8Array(digest))
+}
+
+const getOAuthPKCEConfig = (
+  config: any
+): { required: boolean; method: OAuthPKCEMethod } => {
+  const required = Boolean(config?.pkce?.required)
+  if (!required) {
+    return { required: false, method: 'S256' }
+  }
+
+  const method = config?.pkce?.method || 'S256'
+  if (method !== 'S256' && method !== 'plain') {
+    throw new Error(`Unsupported PKCE method: ${method}`)
+  }
+
+  return {
+    required: true,
+    method
+  }
+}
+
+const generateOAuthPKCEParams = async (
+  method: OAuthPKCEMethod
+): Promise<{ codeVerifier: string; codeChallenge: string }> => {
+  const codeVerifier = generateCodeVerifier()
+
+  if (method === 'plain') {
+    return {
+      codeVerifier,
+      codeChallenge: codeVerifier
+    }
+  }
+
+  return {
+    codeVerifier,
+    codeChallenge: await generateS256CodeChallenge(codeVerifier)
+  }
+}
+
 function DashboardContent() {
   const router = useRouter()
   const { updateAutoLockTimer, autoLockTimer: globalAutoLockTimer } = useLock()
@@ -76,6 +155,9 @@ function DashboardContent() {
   const [serverClients, setServerClients] = useState<
     Record<string, MCPClient[]>
   >({})
+  const [storedServers, setStoredServers] = useState<StoredServer[] | null>(
+    null
+  )
   const [isLoading, setIsLoading] = useState(true)
   const [showSettingsMenu, setShowSettingsMenu] = useState(false)
   const [autoLockTimer, setAutoLockTimer] = useState(globalAutoLockTimer)
@@ -103,14 +185,12 @@ function DashboardContent() {
     new Set()
   ) // Track which servers are currently reconnecting
 
-  // Get all servers (including failed connections)
-  const getAllServers = useCallback((): string[] => {
-    // Get all server IDs from localStorage mcpServers
+  const readStoredServers = useCallback((): StoredServer[] => {
     if (typeof window === 'undefined') return []
 
     try {
       const mcpServers = JSON.parse(localStorage.getItem('mcpServers') || '[]')
-      return mcpServers.map((s: any) => s.id)
+      return Array.isArray(mcpServers) ? mcpServers : []
     } catch (error) {
       console.error('Failed to parse mcpServers:', error)
       return []
@@ -119,7 +199,18 @@ function DashboardContent() {
 
   // Load data for all servers
   const loadAllServersData = useCallback(async () => {
-    const allServers = getAllServers()
+    const currentStoredServers = readStoredServers()
+    const allServers = currentStoredServers.map((server) => server.id)
+
+    setStoredServers(currentStoredServers)
+    setConfiguredApps(
+      currentStoredServers.reduce<Record<string, string[]>>((configured, server) => {
+        configured[server.id] = Array.isArray(server.configuredApps)
+          ? server.configuredApps
+          : []
+        return configured
+      }, {})
+    )
 
     // Update tray icon based on servers status
     if (window.electron?.updateServersStatus) {
@@ -171,33 +262,12 @@ function DashboardContent() {
     }
     // Removed connections dependency to avoid reloading on every change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getAllServers, getCapabilities])
-
-  // Load configured apps from localStorage
-  const loadConfiguredApps = useCallback(() => {
-    try {
-      const mcpServers = JSON.parse(localStorage.getItem('mcpServers') || '[]')
-      const configured: Record<string, string[]> = {}
-
-      for (const server of mcpServers) {
-        if (server.configuredApps && Array.isArray(server.configuredApps)) {
-          configured[server.id] = server.configuredApps
-        } else {
-          configured[server.id] = []
-        }
-      }
-
-      setConfiguredApps(configured)
-    } catch (error) {
-      console.error('Failed to load configured apps:', error)
-    }
-  }, [])
+  }, [getCapabilities, readStoredServers])
 
   // Load data
   useEffect(() => {
     loadAllServersData()
-    loadConfiguredApps()
-  }, [loadAllServersData, loadConfiguredApps])
+  }, [loadAllServersData])
 
   // Check for single reconnect data after returning from unlock-password page
   useEffect(() => {
@@ -477,6 +547,7 @@ function DashboardContent() {
           return s
         })
         localStorage.setItem('mcpServers', JSON.stringify(updatedServers))
+        setStoredServers(updatedServers)
 
         // Update state
         setConfiguredApps((prev) => ({
@@ -608,6 +679,11 @@ function DashboardContent() {
         window.electron.updateConnectionStatus(false)
       }
 
+      setStoredServers([])
+      setConfiguredApps({})
+      setServerClients({})
+      setIsLoading(false)
+
       console.log('All cache and data cleared successfully')
       alert(
         'Cache cleared successfully! The app will redirect to the initial setup page.'
@@ -720,11 +796,15 @@ function DashboardContent() {
   // Helper function to get auth type display name
   const getAuthTypeName = (authType: ServerAuthType): string => {
     switch (authType) {
+      case ServerAuthType.ApiKey: return 'API Key'
       case ServerAuthType.GoogleAuth: return 'Google Drive'
       case ServerAuthType.NotionAuth: return 'Notion'
       case ServerAuthType.FigmaAuth: return 'Figma'
       case ServerAuthType.GoogleCalendarAuth: return 'Google Calendar'
-      case ServerAuthType.GithubAuth: return 'Github'
+      case ServerAuthType.GithubAuth: return 'GitHub'
+      case ServerAuthType.ZendeskAuth: return 'Zendesk'
+      case ServerAuthType.CanvasAuth: return 'Canvas'
+      case ServerAuthType.CanvaAuth: return 'Canva'
       default: return 'OAuth'
     }
   }
@@ -877,12 +957,49 @@ function DashboardContent() {
             return
           }
 
-          const redirectUri = 'http://localhost'
+          const isCanvaAuth =
+            configTemplateObj?.authType === ServerAuthType.CanvaAuth ||
+            effectiveAuthType === ServerAuthType.CanvaAuth
+          const redirectUri = isCanvaAuth
+            ? 'http://127.0.0.1:34327'
+            : 'http://localhost'
+          let pkceVerifier: string | undefined
+          let resolvedOAuthConfig = {
+            ...oAuthConfig,
+            redirectUri
+          }
+
+          try {
+            const pkceConfig = getOAuthPKCEConfig(oAuthConfig)
+            if (pkceConfig.required) {
+              const pkceParams = await generateOAuthPKCEParams(pkceConfig.method)
+              pkceVerifier = pkceParams.codeVerifier
+              resolvedOAuthConfig = {
+                ...resolvedOAuthConfig,
+                extraParams: {
+                  ...(resolvedOAuthConfig.extraParams || {}),
+                  code_challenge: pkceParams.codeChallenge,
+                  code_challenge_method: pkceConfig.method
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Invalid PKCE configuration:', error)
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : 'Invalid PKCE configuration'
+            )
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
+            setIsAuthenticating(false)
+            setAuthenticatingToolId(null)
+            return
+          }
 
           // Perform OAuth authorization through Electron
           const authResult = await (
             window as any
-          ).electronAPI.oauth.authorize(oAuthConfig)
+          ).electronAPI.oauth.authorize(resolvedOAuthConfig)
 
           console.log('🔍 Full auth result:', authResult)
 
@@ -913,6 +1030,14 @@ function DashboardContent() {
               dataType: 1
             }
           ]
+
+          if (pkceVerifier) {
+            authConf.push({
+              key: OAUTH_CODE_VERIFIER_KEY,
+              value: pkceVerifier,
+              dataType: 1
+            })
+          }
 
           if (mcpServerId && gatewayServerId) {
             // After successful authorization, notify core via socket
@@ -1099,7 +1224,7 @@ function DashboardContent() {
       t.serverId ? t.serverId === toolServerId : t.name === toolServerId
     )
 
-    // If allowUserInput=true and authType in ServerAuthType enum (OAuth), need to check authorization status
+    // If allowUserInput=true and not configured, trigger configuration flow (OAuth/API Key)
     if (tool && tool.allowUserInput && !tool.configured) {
       // If not authorized, clicking should trigger the authorization flow regardless of current check state
       console.log(`   Tool requires authorization, triggering auth flow...`)
@@ -1576,7 +1701,8 @@ function DashboardContent() {
     )
   }
 
-  const allServers = getAllServers()
+  const allServers = storedServers?.map((server) => server.id) ?? []
+  const isServerSnapshotReady = storedServers !== null
 
   return (
     <TooltipProvider>
@@ -1584,7 +1710,15 @@ function DashboardContent() {
         <Header showSettingsButton={true} />
 
         <div className="mx-auto px-[8px]">
-          {allServers.length === 0 && (
+          {!isServerSnapshotReady && (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-gray-500 dark:text-gray-400">
+                Loading dashboard...
+              </div>
+            </div>
+          )}
+
+          {isServerSnapshotReady && allServers.length === 0 && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <div className="text-gray-500 dark:text-gray-400 mb-4">
                 No Gateway servers connected
@@ -1598,7 +1732,7 @@ function DashboardContent() {
             </div>
           )}
 
-          {isLoading && allServers.length > 0 && (
+          {isServerSnapshotReady && isLoading && allServers.length > 0 && (
             <div className="flex items-center justify-center py-8">
               <div className="text-gray-500 dark:text-gray-400">
                 Loading dashboard data...
@@ -1607,33 +1741,42 @@ function DashboardContent() {
           )}
 
           {/* Loop through each server */}
-          {!isLoading &&
+          {isServerSnapshotReady &&
+            !isLoading &&
             allServers.map((gatewayServerId) => {
               const connection = connections.get(gatewayServerId)
+              const storedServer = storedServers.find(
+                (server) => server.id === gatewayServerId
+              )
 
-              // Get server info from localStorage if not in connections
-              let serverName = connection?.serverName
-              if (!serverName) {
-                try {
-                  const mcpServers = JSON.parse(
-                    localStorage.getItem('mcpServers') || '[]'
-                  )
-                  const server = mcpServers.find(
-                    (s: any) => s.id === gatewayServerId
-                  )
-                  serverName = server?.serverName || gatewayServerId
-                } catch {
-                  serverName = gatewayServerId
-                }
-              }
+              const serverName =
+                connection?.serverName ||
+                storedServer?.serverName ||
+                gatewayServerId
 
               const activeClientsCount = connection?.activeClientsCount ?? 0
-              const isConnected = connection?.isConnected
-              // If no connection exists, treat as connection failed
-              const connectionFailed = connection
-                ? connection.connectionFailed
-                : true
+              const connectionExists = !!connection
+              const isConnected = connection?.isConnected === true
+              const connectionFailed = connection?.connectionFailed === true
+              const hasEverConnected = !!connection?.lastConnectedAt
               const isReconnecting = reconnectingServers.has(gatewayServerId)
+              const isConnecting =
+                isReconnecting ||
+                (connectionExists &&
+                  !hasEverConnected &&
+                  !isConnected &&
+                  !connectionFailed)
+              const status: 'connecting' | 'connected' | 'failed' | 'disconnected' =
+                isConnecting
+                  ? 'connecting'
+                  : isConnected
+                    ? 'connected'
+                    : connectionFailed
+                      ? 'failed'
+                      : 'disconnected'
+              const showRetry = status === 'failed' || status === 'disconnected'
+              const statusLabel =
+                status === 'failed' ? 'Connect Failed' : 'Disconnected'
               const clients = serverClients[gatewayServerId] || []
 
               // Use activeClientsCount from socket notification for actual client connections
@@ -1661,24 +1804,22 @@ function DashboardContent() {
 
                           {/* Connection Status */}
                           {/* Connected: green dot */}
-                          {isConnected === true &&
-                            !connectionFailed &&
-                            !isReconnecting && (
+                          {status === 'connected' && (
                               <span className="w-[6px] h-[6px] rounded-full flex-shrink-0 bg-[#34C759]"></span>
                             )}
 
                           {/* Connecting: gray tag */}
-                          {isReconnecting && (
+                          {status === 'connecting' && (
                             <span className="px-[8px] py-[2px] text-[11px] text-[#8E8E93] dark:text-gray-400 bg-[#F5F5F5] dark:bg-gray-800 rounded-[6px] border-0 flex-shrink-0">
                               connecting
                             </span>
                           )}
 
-                          {/* Connect failed: red tag + retry button */}
-                          {connectionFailed && !isReconnecting && (
+                          {/* Failed/Disconnected: red tag + retry button */}
+                          {showRetry && (
                             <div className="flex items-center gap-2">
                               <span className="px-[8px] py-[2px] text-[11px] text-[#FF3B30] dark:text-red-400 bg-transparent rounded-[6px] border-0 flex-shrink-0">
-                                Connect Failed
+                                {statusLabel}
                               </span>
                               <button
                                 onClick={() => handleReconnect(gatewayServerId)}
@@ -1689,11 +1830,6 @@ function DashboardContent() {
                               </button>
                             </div>
                           )}
-
-                          {/* Disconnected: red dot */}
-                          {!connection && !isReconnecting && (
-                            <span className="w-[6px] h-[6px] rounded-full flex-shrink-0 bg-[#FF3B30]"></span>
-                          )}
                         </div>
 
                         {/* Connection Info */}
@@ -1703,7 +1839,7 @@ function DashboardContent() {
                       </div>
 
                       {/* Add to Client Button - Only show when connected */}
-                      {isConnected && !connectionFailed && (
+                      {status === 'connected' && (
                         <button
                           onClick={async (e) => {
                             if (
@@ -1829,7 +1965,7 @@ function DashboardContent() {
                                         )}
                                     </div>
 
-                                    {/* Disconnect icon - only shown when allowUserInput=true and authType in [2,3,4] and authorized */}
+                                    {/* Disconnect icon - shown when allowUserInput=true and configured */}
                                     {tool.allowUserInput &&
                                       tool.configured && (
                                         <Tooltip>
