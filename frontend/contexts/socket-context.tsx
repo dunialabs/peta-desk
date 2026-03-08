@@ -1471,13 +1471,3 @@ export function useSocket(): SocketContextType {
   return context
 }
 
-/**
- * Extend Window interface
- */
-declare global {
-  interface Window {
-    socketIO: {
-      createConnection: (url: string, options?: any) => any
-    }
-  }
-}
