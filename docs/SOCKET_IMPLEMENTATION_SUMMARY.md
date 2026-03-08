@@ -6,7 +6,7 @@ A quick reference for how socket connections are structured in the project.
 - **`electron/socket-client.js`**: wraps Socket.IO client creation in the main process.
 - **`electron/main.js`**: bootstraps the app, sets up IPC bridges, and manages lifecycle cleanup.
 - **`frontend/contexts/socket-context.tsx`**: React context that exposes connection state, capability data, and helper actions to the UI.
-- **`frontend/lib/socket-utils.ts`**: shared helpers for connection status and error handling.
+- **`electron/preload.js`**: bridges socket operations from renderer to main process via `contextBridge`.
 
 ## Lifecycle
 1. Create a socket with `forceNew: true` and auth token in the query.
