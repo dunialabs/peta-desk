@@ -108,7 +108,8 @@ interface SocketContextType {
     mcpServerId: string,
     authConf?: Array<{ key: string; value: string; dataType: number }>,
     restfulApiAuth?: Map<any, any>,
-    remoteAuth?: { params: Record<string, any>; headers: Record<string, any> }
+    remoteAuth?: { params: Record<string, any>; headers: Record<string, any> },
+    stdioEnv?: Record<string, string>
   ) => Promise<{ success: boolean; data?: any; error?: string }>
   unconfigureServer: (
     serverId: string,
@@ -1166,7 +1167,8 @@ export function SocketProvider({
       mcpServerId: string,
       authConf?: Array<{ key: string; value: string; dataType: number }>,
       restfulApiAuth?: Map<any, any>,
-      remoteAuth?: { params: Record<string, any>; headers: Record<string, any> }
+      remoteAuth?: { params: Record<string, any>; headers: Record<string, any> },
+      stdioEnv?: Record<string, string>
     ): Promise<{ success: boolean; data?: any; error?: string }> => {
       const conn = connections.get(serverId)
 
@@ -1225,7 +1227,8 @@ export function SocketProvider({
               serverId: mcpServerId,
               authConf,
               restfulApiAuth,
-              remoteAuth
+              remoteAuth,
+              stdioEnv
             },
             timestamp: Date.now()
           }

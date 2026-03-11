@@ -317,7 +317,7 @@ function DashboardContent() {
     }
   }, [])
 
-  // Handle configuration returns from RestApi and CustomRemote pages
+  // Handle configuration returns from RestApi, CustomRemote, and CustomStdio pages
   useEffect(() => {
     const pendingConfigStr = sessionStorage.getItem('pendingConfig')
     if (pendingConfigStr) {
@@ -326,7 +326,7 @@ function DashboardContent() {
 
       try {
         const config = JSON.parse(pendingConfigStr)
-        const { serverId, mcpServerId, toolId, authConf, restfulApiAuth, remoteAuth } =
+        const { serverId, mcpServerId, toolId, authConf, restfulApiAuth, remoteAuth, stdioEnv } =
           config
 
         // Call configureServer with the appropriate auth data
@@ -344,13 +344,15 @@ function DashboardContent() {
             console.log('  authConf:', authConf ? 'present' : 'undefined')
             console.log('  restfulApiAuth:', restfulApiAuth ? 'present' : 'undefined')
             console.log('  remoteAuth:', remoteAuth ? 'present' : 'undefined')
+            console.log('  stdioEnv:', stdioEnv ? 'present' : 'undefined')
 
             const configResult = await configureServer(
               serverId,
               mcpServerId,
               authConf,
               restfulApiAuth,
-              remoteAuth
+              remoteAuth,
+              stdioEnv
             )
 
             if (configResult.success) {
@@ -897,6 +899,26 @@ function DashboardContent() {
           setAuthenticatingToolId(null)
           return
         }
+        case ServerCategory.CustomStdio: {
+          // Store configTemplate in sessionStorage to avoid URL length limitations
+          sessionStorage.setItem(
+            'stdio-config-template',
+            JSON.stringify({
+              configTemplate: tool.configTemplate,
+              serverId: gatewayServerId,
+              mcpServerId: mcpServerId,
+              toolId: toolId
+            })
+          )
+
+          // Navigate with only IDs (no large data in URL)
+          router.push(
+            `/configure-stdio?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`
+          )
+          setIsAuthenticating(false)
+          setAuthenticatingToolId(null)
+          return
+        }
         case ServerCategory.Template:
           // Template server with ApiKey uses credentials configuration
           if (effectiveAuthType === ServerAuthType.ApiKey) {
@@ -1115,15 +1137,15 @@ function DashboardContent() {
       const authType = parseInt(authTypeStr, 10)
       const category = parseInt(categoryStr, 10)
 
-      // Check if this is RestApi or CustomRemote (no OAuth logout needed)
-      if (category === ServerCategory.RestApi || category === ServerCategory.CustomRemote) {
-        // Direct unconfigure for RestApi/CustomRemote - no OAuth logout
+      // Check if this is RestApi, CustomRemote, or CustomStdio (no OAuth logout needed)
+      if (category === ServerCategory.RestApi || category === ServerCategory.CustomRemote || category === ServerCategory.CustomStdio) {
+        // Direct unconfigure for RestApi/CustomRemote/CustomStdio - no OAuth logout
         console.log('====================================')
         console.log('📤 Sending to Core (unconfigure_server):')
         console.log('====================================')
         console.log('Gateway Server ID:', gatewayServerId)
         console.log('MCP Server ID:', mcpServerId)
-        console.log('Category:', category === ServerCategory.RestApi ? 'RestApi' : 'CustomRemote')
+        console.log('Category:', category === ServerCategory.RestApi ? 'RestApi' : category === ServerCategory.CustomRemote ? 'CustomRemote' : 'CustomStdio')
         console.log('====================================')
 
         const unconfigResult = await unconfigureServer(gatewayServerId, mcpServerId)
