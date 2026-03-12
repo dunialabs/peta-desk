@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Header from '@/components/common/header'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,10 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card'
+import {
+  claimSessionStorageItem,
+  clearClaimedSessionStorageItem
+} from '@/lib/session-storage'
 import { toast } from 'sonner'
 
 type AuthType = 'bearer' | 'header' | 'query_param' | 'basic'
@@ -27,6 +31,12 @@ type AuthType = 'bearer' | 'header' | 'query_param' | 'basic'
 function ConfigureRestApiContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const initializedTemplateKey = useRef<string | null>(null)
+
+  const serverIdParam = searchParams.get('serverId') || ''
+  const mcpServerIdParam = searchParams.get('mcpServerId') || ''
+  const toolIdParam = searchParams.get('toolId') || ''
+  const restApiTemplateStorageKey = 'restapi-config-template'
 
   const [serverId, setServerId] = useState('')
   const [mcpServerId, setMcpServerId] = useState('')
@@ -44,23 +54,32 @@ function ConfigureRestApiContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    // Get parameters from URL
-    const sId = searchParams.get('serverId') || ''
-    const mId = searchParams.get('mcpServerId') || ''
-    const tId = searchParams.get('toolId') || ''
+    if (!serverIdParam && !mcpServerIdParam && !toolIdParam) {
+      return
+    }
 
-    setServerId(sId)
-    setMcpServerId(mId)
-    setToolId(tId)
+    const currentTemplateKey = `${serverIdParam}:${mcpServerIdParam}:${toolIdParam}`
+    if (initializedTemplateKey.current === currentTemplateKey) {
+      return
+    }
+    initializedTemplateKey.current = currentTemplateKey
+
+    setServerId(serverIdParam)
+    setMcpServerId(mcpServerIdParam)
+    setToolId(toolIdParam)
 
     // Read configTemplate from sessionStorage instead of URL
-    const storedData = sessionStorage.getItem('restapi-config-template')
+    const storedData = claimSessionStorageItem(restApiTemplateStorageKey)
     if (storedData) {
       try {
         const data = JSON.parse(storedData)
 
         // Validate that stored data matches URL params (security check)
-        if (data.serverId === sId && data.mcpServerId === mId && data.toolId === tId) {
+        if (
+          data.serverId === serverIdParam &&
+          data.mcpServerId === mcpServerIdParam &&
+          data.toolId === toolIdParam
+        ) {
           const parsed = JSON.parse(data.configTemplate)
           setConfigTemplateObj(parsed)
 
@@ -75,8 +94,6 @@ function ConfigureRestApiContent() {
             setAuthPassword(auth.password || '')
           }
 
-          // Clean up sessionStorage after reading
-          sessionStorage.removeItem('restapi-config-template')
         } else {
           console.error('Stored data does not match URL parameters')
           toast.error('Configuration data mismatch')
@@ -88,7 +105,7 @@ function ConfigureRestApiContent() {
     } else {
       toast.error('Configuration template not found')
     }
-  }, [searchParams])
+  }, [serverIdParam, mcpServerIdParam, toolIdParam])
 
   const validateAuth = (): boolean => {
     if (authType === 'bearer') {
@@ -161,6 +178,7 @@ function ConfigureRestApiContent() {
           restfulApiAuth
         })
       )
+      clearClaimedSessionStorageItem(restApiTemplateStorageKey)
 
       toast.success('Configuration saved')
       router.push('/dashboard')
@@ -172,6 +190,7 @@ function ConfigureRestApiContent() {
   }
 
   const handleCancel = () => {
+    clearClaimedSessionStorageItem(restApiTemplateStorageKey)
     router.push('/dashboard')
   }
 

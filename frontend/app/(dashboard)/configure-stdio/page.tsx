@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { claimSessionStorageItem, clearClaimedSessionStorageItem } from '@/lib/session-storage';
 import { toast } from 'sonner';
 import { Plus, X, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
@@ -29,6 +30,12 @@ function ConfigureStdioContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rowIdCounter = useRef(0);
+  const initializedTemplateKey = useRef<string | null>(null);
+
+  const serverIdParam = searchParams.get('serverId') || '';
+  const mcpServerIdParam = searchParams.get('mcpServerId') || '';
+  const toolIdParam = searchParams.get('toolId') || '';
+  const stdioTemplateStorageKey = 'stdio-config-template';
 
   const nextRowId = () => `row-${++rowIdCounter.current}`;
 
@@ -49,15 +56,32 @@ function ConfigureStdioContent() {
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const sId = searchParams.get('serverId') || '';
-    const mId = searchParams.get('mcpServerId') || '';
-    const tId = searchParams.get('toolId') || '';
+    if (!serverIdParam && !mcpServerIdParam && !toolIdParam) {
+      return;
+    }
 
-    setServerId(sId);
-    setMcpServerId(mId);
-    setToolId(tId);
+    if (!serverIdParam || !mcpServerIdParam || !toolIdParam) {
+      setLoadError(
+        'Missing configuration identifiers. Please try connecting again from the dashboard.',
+      );
+      setIsLoading(false);
+      return;
+    }
 
-    const storedData = sessionStorage.getItem('stdio-config-template');
+    const currentTemplateKey = `${serverIdParam}:${mcpServerIdParam}:${toolIdParam}`;
+    if (initializedTemplateKey.current === currentTemplateKey) {
+      return;
+    }
+    initializedTemplateKey.current = currentTemplateKey;
+
+    setServerId(serverIdParam);
+    setMcpServerId(mcpServerIdParam);
+    setToolId(toolIdParam);
+    setLoadError(null);
+    setIsLoading(true);
+
+    const storedData = claimSessionStorageItem(stdioTemplateStorageKey);
+    console.log('storedData', storedData);
     if (!storedData) {
       setLoadError(
         'Configuration template not found. Please try connecting again from the dashboard.',
@@ -69,7 +93,11 @@ function ConfigureStdioContent() {
     try {
       const data = JSON.parse(storedData);
 
-      if (data.serverId !== sId || data.mcpServerId !== mId || data.toolId !== tId) {
+      if (
+        data.serverId !== serverIdParam ||
+        data.mcpServerId !== mcpServerIdParam ||
+        data.toolId !== toolIdParam
+      ) {
         setLoadError(
           'Configuration data mismatch. Please try connecting again from the dashboard.',
         );
@@ -88,7 +116,6 @@ function ConfigureStdioContent() {
 
       setOverrides([{ id: nextRowId(), key: '', value: '' }]);
 
-      sessionStorage.removeItem('stdio-config-template');
       setIsLoading(false);
     } catch (error) {
       console.error('Failed to parse config template:', error);
@@ -97,7 +124,7 @@ function ConfigureStdioContent() {
       );
       setIsLoading(false);
     }
-  }, [searchParams]);
+  }, [serverIdParam, mcpServerIdParam, toolIdParam]);
 
   const handleAddOverride = () => {
     setOverrides((prev) => [...prev, { id: nextRowId(), key: '', value: '' }]);
@@ -162,6 +189,7 @@ function ConfigureStdioContent() {
           stdioEnv,
         }),
       );
+      clearClaimedSessionStorageItem(stdioTemplateStorageKey);
 
       // No success toast here — let the dashboard own the final message
       // after core actually applies the configuration
@@ -174,6 +202,7 @@ function ConfigureStdioContent() {
   };
 
   const handleCancel = () => {
+    clearClaimedSessionStorageItem(stdioTemplateStorageKey);
     router.push('/dashboard');
   };
 
@@ -190,7 +219,7 @@ function ConfigureStdioContent() {
       <div className="flex h-screen flex-col items-center justify-center gap-4 px-4">
         <AlertCircle className="h-12 w-12 text-destructive" />
         <p className="max-w-sm text-center text-sm text-muted-foreground">{loadError}</p>
-        <Button variant="outline" onClick={() => router.push('/dashboard')}>
+        <Button variant="outline" onClick={handleCancel}>
           Back to Dashboard
         </Button>
       </div>

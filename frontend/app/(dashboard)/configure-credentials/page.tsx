@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Header from '@/components/common/header'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,10 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card'
+import {
+  claimSessionStorageItem,
+  clearClaimedSessionStorageItem
+} from '@/lib/session-storage'
 import { toast } from 'sonner'
 
 interface Credential {
@@ -30,6 +34,12 @@ interface CredentialInput extends Credential {
 function ConfigureCredentialsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const initializedTemplateKey = useRef<string | null>(null)
+
+  const serverIdParam = searchParams.get('serverId') || ''
+  const mcpServerIdParam = searchParams.get('mcpServerId') || ''
+  const toolIdParam = searchParams.get('toolId') || ''
+  const credentialsTemplateStorageKey = 'credentials-config-template'
 
   const [serverId, setServerId] = useState('')
   const [mcpServerId, setMcpServerId] = useState('')
@@ -40,20 +50,32 @@ function ConfigureCredentialsContent() {
   const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
-    const sId = searchParams.get('serverId') || ''
-    const mId = searchParams.get('mcpServerId') || ''
-    const tId = searchParams.get('toolId') || ''
+    if (!serverIdParam && !mcpServerIdParam && !toolIdParam) {
+      return
+    }
 
-    setServerId(sId)
-    setMcpServerId(mId)
-    setToolId(tId)
+    const currentTemplateKey = `${serverIdParam}:${mcpServerIdParam}:${toolIdParam}`
+    if (initializedTemplateKey.current === currentTemplateKey) {
+      return
+    }
+    initializedTemplateKey.current = currentTemplateKey
 
-    const storedData = sessionStorage.getItem('credentials-config-template')
+    setServerId(serverIdParam)
+    setMcpServerId(mcpServerIdParam)
+    setToolId(toolIdParam)
+    setHasError(false)
+    setIsReady(false)
+
+    const storedData = claimSessionStorageItem(credentialsTemplateStorageKey)
     if (storedData) {
       try {
         const data = JSON.parse(storedData)
 
-        if (data.serverId === sId && data.mcpServerId === mId && data.toolId === tId) {
+        if (
+          data.serverId === serverIdParam &&
+          data.mcpServerId === mcpServerIdParam &&
+          data.toolId === toolIdParam
+        ) {
           const parsed = JSON.parse(data.configTemplate)
           const templateCredentials = parsed.credentials as Credential[]
 
@@ -85,7 +107,7 @@ function ConfigureCredentialsContent() {
     }
 
     setIsReady(true)
-  }, [searchParams])
+  }, [serverIdParam, mcpServerIdParam, toolIdParam])
 
   const handleCredentialChange = (index: number, value: string) => {
     const nextCredentials = [...credentials]
@@ -118,7 +140,7 @@ function ConfigureCredentialsContent() {
           authConf
         })
       )
-      sessionStorage.removeItem('credentials-config-template')
+      clearClaimedSessionStorageItem(credentialsTemplateStorageKey)
 
       toast.success('Configuration saved')
       router.push('/dashboard')
@@ -130,7 +152,7 @@ function ConfigureCredentialsContent() {
   }
 
   const handleCancel = () => {
-    sessionStorage.removeItem('credentials-config-template')
+    clearClaimedSessionStorageItem(credentialsTemplateStorageKey)
     router.push('/dashboard')
   }
 
