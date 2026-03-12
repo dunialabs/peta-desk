@@ -1,31 +1,52 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/common/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
-interface KeyValuePair {
+interface EnvRow {
+  id: string;
   key: string;
   value: string;
 }
 
+/**
+ * Token-boundary matching for sensitive env var names.
+ * Matches keys like API_KEY, CLIENT_SECRET, etc. without false positives on generic "KEY".
+ */
+const isSensitiveEnvKey = (key: string): boolean =>
+  /(^|_)(SECRET|TOKEN|PASSWORD|CREDENTIALS?|API_KEY|PRIVATE_KEY|ACCESS_KEY|CLIENT_SECRET)(_|$)/i.test(
+    key,
+  );
+
 function ConfigureStdioContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const rowIdCounter = useRef(0);
+
+  const nextRowId = () => `row-${++rowIdCounter.current}`;
 
   const [serverId, setServerId] = useState('');
   const [mcpServerId, setMcpServerId] = useState('');
   const [toolId, setToolId] = useState('');
   const [command, setCommand] = useState('');
   const [args, setArgs] = useState<string[]>([]);
-  const [envVars, setEnvVars] = useState<KeyValuePair[]>([{ key: '', value: '' }]);
-  const [adminEnvKeys, setAdminEnvKeys] = useState<Set<string>>(new Set());
+
+  const [adminEnvVars, setAdminEnvVars] = useState<Record<string, string>>({});
+  const [overrides, setOverrides] = useState<EnvRow[]>(() => [
+    { id: 'row-init', key: '', value: '' },
+  ]);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const sId = searchParams.get('serverId') || '';
@@ -37,81 +58,94 @@ function ConfigureStdioContent() {
     setToolId(tId);
 
     const storedData = sessionStorage.getItem('stdio-config-template');
-    if (storedData) {
-      try {
-        const data = JSON.parse(storedData);
+    if (!storedData) {
+      setLoadError(
+        'Configuration template not found. Please try connecting again from the dashboard.',
+      );
+      setIsLoading(false);
+      return;
+    }
 
-        if (data.serverId === sId && data.mcpServerId === mId && data.toolId === tId) {
-          const parsed = JSON.parse(data.configTemplate);
+    try {
+      const data = JSON.parse(storedData);
 
-          if (parsed.command) {
-            setCommand(parsed.command);
-          }
-
-          if (Array.isArray(parsed.args)) {
-            setArgs(parsed.args);
-          }
-
-          if (parsed.env && typeof parsed.env === 'object') {
-            const adminKeys = new Set<string>(Object.keys(parsed.env));
-            setAdminEnvKeys(adminKeys);
-
-            const envArray = Object.entries(parsed.env).map(([key, value]) => ({
-              key,
-              value: String(value),
-            }));
-            setEnvVars(
-              envArray.length > 0
-                ? [...envArray, { key: '', value: '' }]
-                : [{ key: '', value: '' }],
-            );
-          } else {
-            setEnvVars([{ key: '', value: '' }]);
-          }
-
-          sessionStorage.removeItem('stdio-config-template');
-        } else {
-          console.error('Stored data does not match URL parameters');
-          toast.error('Configuration data mismatch');
-        }
-      } catch (error) {
-        console.error('Failed to parse stored config template:', error);
-        toast.error('Failed to load configuration template');
-        setEnvVars([{ key: '', value: '' }]);
+      if (data.serverId !== sId || data.mcpServerId !== mId || data.toolId !== tId) {
+        setLoadError(
+          'Configuration data mismatch. Please try connecting again from the dashboard.',
+        );
+        setIsLoading(false);
+        return;
       }
-    } else {
-      toast.error('Configuration template not found');
+
+      const parsed = JSON.parse(data.configTemplate);
+
+      if (parsed.command) setCommand(parsed.command);
+      if (Array.isArray(parsed.args)) setArgs(parsed.args);
+
+      if (parsed.env && typeof parsed.env === 'object') {
+        setAdminEnvVars(parsed.env);
+      }
+
+      setOverrides([{ id: nextRowId(), key: '', value: '' }]);
+
+      sessionStorage.removeItem('stdio-config-template');
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Failed to parse config template:', error);
+      setLoadError(
+        'Failed to load configuration template. Please try connecting again from the dashboard.',
+      );
+      setIsLoading(false);
     }
   }, [searchParams]);
 
-  const handleAddEnvVar = () => {
-    setEnvVars([...envVars, { key: '', value: '' }]);
+  const handleAddOverride = () => {
+    setOverrides((prev) => [...prev, { id: nextRowId(), key: '', value: '' }]);
   };
 
-  const handleRemoveEnvVar = (index: number) => {
-    if (envVars.length > 1) {
-      setEnvVars(envVars.filter((_, i) => i !== index));
+  const handleRemoveOverride = (index: number) => {
+    if (overrides.length > 1) {
+      setOverrides((prev) => prev.filter((_, i) => i !== index));
     }
   };
 
-  const handleEnvVarChange = (index: number, field: 'key' | 'value', value: string) => {
-    const newEnvVars = [...envVars];
-    newEnvVars[index][field] = value;
-    setEnvVars(newEnvVars);
+  const handleOverrideChange = (index: number, field: 'key' | 'value', value: string) => {
+    setOverrides((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const toggleReveal = (rowId: string) => {
+    setRevealedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) {
+        next.delete(rowId);
+      } else {
+        next.add(rowId);
+      }
+      return next;
+    });
   };
 
   const handleSave = () => {
-    const validEnvVars = envVars.filter((e) => e.key.trim());
+    const validOverrides = overrides.filter((e) => e.key.trim());
 
-    if (validEnvVars.length === 0) {
-      toast.error('At least one environment variable is required');
-      return;
+    const seenKeys = new Set<string>();
+    for (const row of validOverrides) {
+      const k = row.key.trim();
+      if (seenKeys.has(k)) {
+        toast.error(`Duplicate setting name: ${k}`);
+        return;
+      }
+      seenKeys.add(k);
     }
 
     setIsSubmitting(true);
 
     try {
-      const stdioEnv = validEnvVars.reduce(
+      const stdioEnv = validOverrides.reduce(
         (acc, env) => ({
           ...acc,
           [env.key.trim()]: env.value.trim(),
@@ -129,7 +163,8 @@ function ConfigureStdioContent() {
         }),
       );
 
-      toast.success('Configuration saved');
+      // No success toast here — let the dashboard own the final message
+      // after core actually applies the configuration
       router.push('/dashboard');
     } catch (error) {
       console.error('Failed to save configuration:', error);
@@ -142,10 +177,22 @@ function ConfigureStdioContent() {
     router.push('/dashboard');
   };
 
-  if (!command) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <p className="text-muted-foreground">Loading configuration...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 px-4">
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <p className="max-w-sm text-center text-sm text-muted-foreground">{loadError}</p>
+        <Button variant="outline" onClick={() => router.push('/dashboard')}>
+          Back to Dashboard
+        </Button>
       </div>
     );
   }
@@ -160,10 +207,12 @@ function ConfigureStdioContent() {
           <Card>
             <CardHeader>
               <CardTitle>Command</CardTitle>
-              <CardDescription>The command to run (set by admin, read-only)</CardDescription>
+              <CardDescription>The command to run (set by administrator)</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md bg-muted p-3 font-mono text-sm">{command}</div>
+              <div className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 font-mono text-sm">
+                {command}
+              </div>
             </CardContent>
           </Card>
 
@@ -172,10 +221,10 @@ function ConfigureStdioContent() {
             <Card>
               <CardHeader>
                 <CardTitle>Arguments</CardTitle>
-                <CardDescription>Command arguments (set by admin, read-only)</CardDescription>
+                <CardDescription>Command arguments (set by administrator)</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md bg-muted p-3 font-mono text-sm space-y-1">
+                <div className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-3 font-mono text-sm space-y-1">
                   {args.map((arg, index) => (
                     <div key={index}>{arg}</div>
                   ))}
@@ -184,54 +233,109 @@ function ConfigureStdioContent() {
             </Card>
           )}
 
-          {/* Environment Variables Editor */}
+          {/* Admin Defaults (Read-Only) */}
+          {Object.keys(adminEnvVars).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Default Settings</CardTitle>
+                <CardDescription>
+                  Pre-configured by your administrator. These will be applied automatically.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {Object.entries(adminEnvVars).map(([key, value]) => (
+                  <div key={key} className="flex flex-col gap-2 sm:flex-row">
+                    <div className="flex-1">
+                      <Label className="sr-only">Variable name</Label>
+                      <div className="rounded-md bg-muted px-3 py-2 font-mono text-sm">{key}</div>
+                    </div>
+                    <div className="flex-1">
+                      <Label className="sr-only">Value for {key}</Label>
+                      <div className="rounded-md bg-muted px-3 py-2 font-mono text-sm">
+                        {isSensitiveEnvKey(key) ? '••••••••' : String(value)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* User Overrides (Editable) */}
           <Card>
             <CardHeader>
-              <CardTitle>Environment Variables</CardTitle>
+              <CardTitle>Additional Settings</CardTitle>
               <CardDescription>
-                Configure environment variables for the server process. Admin defaults are
-                pre-filled — your values override on key collision.
+                Add your own settings or override administrator defaults.
+                {Object.keys(adminEnvVars).length > 0 &&
+                  ' Use the same name as a default setting above to override its value.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {envVars.map((envVar, index) => (
-                <div key={index} className="flex gap-2">
+              {overrides.map((row, index) => (
+                <div key={row.id} className="flex flex-col gap-2 sm:flex-row">
                   <div className="flex-1">
+                    <Label htmlFor={`key-${row.id}`} className="sr-only">
+                      Setting name
+                    </Label>
                     <Input
-                      placeholder="Variable name (e.g. API_KEY)"
-                      value={envVar.key}
-                      onChange={(e) => handleEnvVarChange(index, 'key', e.target.value)}
-                      readOnly={adminEnvKeys.has(envVar.key) && envVar.key !== ''}
-                      className={
-                        adminEnvKeys.has(envVar.key) && envVar.key !== '' ? 'bg-muted' : ''
-                      }
+                      id={`key-${row.id}`}
+                      placeholder="Setting name (e.g. API_KEY)"
+                      value={row.key}
+                      onChange={(e) => handleOverrideChange(index, 'key', e.target.value)}
                     />
                   </div>
-                  <div className="flex-1">
+                  <div className="relative flex-1">
+                    <Label htmlFor={`val-${row.id}`} className="sr-only">
+                      Value for {row.key || 'setting'}
+                    </Label>
                     <Input
+                      id={`val-${row.id}`}
                       placeholder="Value"
-                      value={envVar.value}
-                      onChange={(e) => handleEnvVarChange(index, 'value', e.target.value)}
+                      value={row.value}
+                      onChange={(e) => handleOverrideChange(index, 'value', e.target.value)}
                       type={
-                        envVar.key.toUpperCase().match(/(SECRET|TOKEN|PASSWORD|KEY|CREDENTIAL)/)
+                        isSensitiveEnvKey(row.key) && !revealedKeys.has(row.id)
                           ? 'password'
                           : 'text'
                       }
+                      className={isSensitiveEnvKey(row.key) ? 'pr-10' : ''}
                     />
+                    {isSensitiveEnvKey(row.key) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3"
+                        onClick={() => toggleReveal(row.id)}
+                        aria-label={
+                          revealedKeys.has(row.id)
+                            ? `Hide value for ${row.key}`
+                            : `Show value for ${row.key}`
+                        }
+                      >
+                        {revealedKeys.has(row.id) ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleRemoveEnvVar(index)}
-                    disabled={envVars.length === 1}
+                    onClick={() => handleRemoveOverride(index)}
+                    disabled={overrides.length === 1}
+                    aria-label={row.key ? `Remove ${row.key}` : `Remove row ${index + 1}`}
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               ))}
-              <Button variant="outline" size="sm" onClick={handleAddEnvVar} className="w-full">
+              <Button variant="outline" size="sm" onClick={handleAddOverride} className="w-full">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Environment Variable
+                Add Setting
               </Button>
             </CardContent>
           </Card>
@@ -250,7 +354,7 @@ function ConfigureStdioContent() {
             Cancel
           </Button>
           <Button className="flex-1" onClick={handleSave} disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Save Configuration'}
+            {isSubmitting ? 'Saving...' : 'Save & Connect'}
           </Button>
         </div>
       </div>
