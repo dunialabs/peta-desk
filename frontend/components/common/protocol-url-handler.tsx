@@ -11,7 +11,7 @@ export function ProtocolUrlHandler() {
   const pathname = usePathname()
 
   useEffect(() => {
-    console.log('[Protocol URL Handler] Component mounted')
+    console.log('[Protocol URL Handler] Effect running for pathname:', pathname)
     console.log('[Protocol URL Handler] window.electron available:', !!window.electron)
     console.log('[Protocol URL Handler] ipcRenderer available:', !!window.electron?.ipcRenderer)
 

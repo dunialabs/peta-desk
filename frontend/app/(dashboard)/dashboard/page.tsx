@@ -1,146 +1,133 @@
-'use client'
+'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronDown, RefreshCw } from 'lucide-react'
-import { Switch } from '@/components/ui/switch'
-import { Badge } from '@/components/ui/badge'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ChevronDown, RefreshCw } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import Header from '@/components/common/header'
-import { useLock } from '@/contexts/lock-context'
-import { useSocket } from '@/contexts/socket-context'
+  DialogTitle,
+} from '@/components/ui/dialog';
+import Header from '@/components/common/header';
+import { useLock } from '@/contexts/lock-context';
+import { useSocket } from '@/contexts/socket-context';
 import {
   convertCapabilitiesToClients,
-  convertClientsToCapabilities
-} from '@/lib/capabilities-adapter'
-import type {
-  MCPClient,
-  MCPFunction,
-  MCPTool
-} from '@/lib/capabilities-adapter'
-import { toast } from 'sonner'
-import { DisconnectIcon } from '@/components/icons/disconnect-icon'
-import { LoadingSpinner } from '@/components/icons/loading-spinner'
-import { ServerAuthType, ServerCategory } from '@/types/capabilities'
-import { headers } from 'next/headers'
+  convertClientsToCapabilities,
+} from '@/lib/capabilities-adapter';
+import type { MCPClient, MCPFunction, MCPTool } from '@/lib/capabilities-adapter';
+import { toast } from 'sonner';
+import { DisconnectIcon } from '@/components/icons/disconnect-icon';
+import { LoadingSpinner } from '@/components/icons/loading-spinner';
+import { ServerAuthType, ServerCategory } from '@/types/capabilities';
 
 type StoredServer = {
-  id: string
-  serverName?: string
-  serverUrl?: string
-  token?: string
-  configuredApps?: string[]
-}
+  id: string;
+  serverName?: string;
+  serverUrl?: string;
+  token?: string;
+  configuredApps?: string[];
+};
 
 const timeOptions = [
   { label: '5 min', value: 5 },
   { label: '15 min', value: 15 },
   { label: '30 min', value: 30 },
   { label: '1 hour', value: 60 },
-  { label: 'Never', value: -1 }
-]
+  { label: 'Never', value: -1 },
+];
 
 // DangerLevel enum matching peta-core
 enum DangerLevel {
   Unconfigured = -1, // Unconfigured - No configuration for the tool
   Silent = 0, // Execute Silently - Function executes automatically without user notification
   Notification = 1, // Execute with Notification - Function executes automatically and displays result to user
-  Approval = 2 // Require Manual Approval - User must manually approve before function execution
+  Approval = 2, // Require Manual Approval - User must manually approve before function execution
 }
 
 const dangerLevelOptions = [
   { label: 'Silent', value: DangerLevel.Silent },
   { label: 'Notification', value: DangerLevel.Notification },
-  { label: 'Approval', value: DangerLevel.Approval }
-]
+  { label: 'Approval', value: DangerLevel.Approval },
+];
 
-const OAUTH_CODE_VERIFIER_KEY = 'YOUR_OAUTH_PKCE_VERIFIER'
-const PKCE_VERIFIER_CHARSET =
-  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
-const PKCE_VERIFIER_LENGTH = 96
+const OAUTH_CODE_VERIFIER_KEY = 'YOUR_OAUTH_PKCE_VERIFIER';
+const PKCE_VERIFIER_CHARSET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+const PKCE_VERIFIER_LENGTH = 96;
 
-type OAuthPKCEMethod = 'S256' | 'plain'
+type OAuthPKCEMethod = 'S256' | 'plain';
 
 const encodeBase64Url = (input: Uint8Array): string => {
-  let binary = ''
+  let binary = '';
   for (const byte of input) {
-    binary += String.fromCharCode(byte)
+    binary += String.fromCharCode(byte);
   }
 
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+};
 
 const generateCodeVerifier = (): string => {
-  const randomBytes = new Uint8Array(PKCE_VERIFIER_LENGTH)
-  crypto.getRandomValues(randomBytes)
+  const randomBytes = new Uint8Array(PKCE_VERIFIER_LENGTH);
+  crypto.getRandomValues(randomBytes);
 
-  let verifier = ''
+  let verifier = '';
   for (const randomByte of randomBytes) {
-    verifier += PKCE_VERIFIER_CHARSET[randomByte % PKCE_VERIFIER_CHARSET.length]
+    verifier += PKCE_VERIFIER_CHARSET[randomByte % PKCE_VERIFIER_CHARSET.length];
   }
 
-  return verifier
-}
+  return verifier;
+};
 
 const generateS256CodeChallenge = async (codeVerifier: string): Promise<string> => {
-  const data = new TextEncoder().encode(codeVerifier)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return encodeBase64Url(new Uint8Array(digest))
-}
+  const data = new TextEncoder().encode(codeVerifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return encodeBase64Url(new Uint8Array(digest));
+};
 
-const getOAuthPKCEConfig = (
-  config: any
-): { required: boolean; method: OAuthPKCEMethod } => {
-  const required = Boolean(config?.pkce?.required)
+const getOAuthPKCEConfig = (config: any): { required: boolean; method: OAuthPKCEMethod } => {
+  const required = Boolean(config?.pkce?.required);
   if (!required) {
-    return { required: false, method: 'S256' }
+    return { required: false, method: 'S256' };
   }
 
-  const method = config?.pkce?.method || 'S256'
+  const method = config?.pkce?.method || 'S256';
   if (method !== 'S256' && method !== 'plain') {
-    throw new Error(`Unsupported PKCE method: ${method}`)
+    throw new Error(`Unsupported PKCE method: ${method}`);
   }
 
   return {
     required: true,
-    method
-  }
-}
+    method,
+  };
+};
 
 const generateOAuthPKCEParams = async (
-  method: OAuthPKCEMethod
+  method: OAuthPKCEMethod,
 ): Promise<{ codeVerifier: string; codeChallenge: string }> => {
-  const codeVerifier = generateCodeVerifier()
+  const codeVerifier = generateCodeVerifier();
 
   if (method === 'plain') {
     return {
       codeVerifier,
-      codeChallenge: codeVerifier
-    }
+      codeChallenge: codeVerifier,
+    };
   }
 
   return {
     codeVerifier,
-    codeChallenge: await generateS256CodeChallenge(codeVerifier)
-  }
-}
+    codeChallenge: await generateS256CodeChallenge(codeVerifier),
+  };
+};
 
 function DashboardContent() {
-  const router = useRouter()
-  const { updateAutoLockTimer, autoLockTimer: globalAutoLockTimer } = useLock()
+  const router = useRouter();
+  const { updateAutoLockTimer, autoLockTimer: globalAutoLockTimer } = useLock();
   const {
     getCapabilities,
     setCapabilities,
@@ -148,279 +135,262 @@ function DashboardContent() {
     connections,
     configureServer,
     unconfigureServer,
-    connectToServer
-  } = useSocket()
+    connectToServer,
+  } = useSocket();
 
   // Store clients keyed by serverId
-  const [serverClients, setServerClients] = useState<
-    Record<string, MCPClient[]>
-  >({})
-  const [storedServers, setStoredServers] = useState<StoredServer[] | null>(
-    null
-  )
-  const [isLoading, setIsLoading] = useState(true)
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false)
-  const [autoLockTimer, setAutoLockTimer] = useState(globalAutoLockTimer)
-  const [serverSwitches, setServerSwitches] = useState<Record<string, boolean>>(
-    {}
-  )
-  const [isAuthenticating, setIsAuthenticating] = useState(false)
-  const [authenticatingToolId, setAuthenticatingToolId] = useState<
-    string | null
-  >(null) // Track which tool is being authorized
-  const [authStatus, setAuthStatus] = useState<
-    Record<string, 'connecting' | 'failed' | null>
-  >({}) // Track auth status per tool
-  const [hoveredDisconnectBtn, setHoveredDisconnectBtn] = useState<
-    string | null
-  >(null)
-  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
-  const [disconnectTargetServerId, setDisconnectTargetServerId] = useState<
-    string | undefined
-  >(undefined)
-  const [configuredApps, setConfiguredApps] = useState<
-    Record<string, string[]>
-  >({}) // serverId -> [app names that are configured]
-  const [reconnectingServers, setReconnectingServers] = useState<Set<string>>(
-    new Set()
-  ) // Track which servers are currently reconnecting
+  const [serverClients, setServerClients] = useState<Record<string, MCPClient[]>>({});
+  const [storedServers, setStoredServers] = useState<StoredServer[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [autoLockTimer, setAutoLockTimer] = useState(globalAutoLockTimer);
+  const [serverSwitches, setServerSwitches] = useState<Record<string, boolean>>({});
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authenticatingToolId, setAuthenticatingToolId] = useState<string | null>(null); // Track which tool is being authorized
+  const [authStatus, setAuthStatus] = useState<Record<string, 'connecting' | 'failed' | null>>({}); // Track auth status per tool
+  const [hoveredDisconnectBtn, setHoveredDisconnectBtn] = useState<string | null>(null);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
+  const [disconnectTargetServerId, setDisconnectTargetServerId] = useState<string | undefined>(
+    undefined,
+  );
+  const [configuredApps, setConfiguredApps] = useState<Record<string, string[]>>({}); // serverId -> [app names that are configured]
+  const [reconnectingServers, setReconnectingServers] = useState<Set<string>>(new Set()); // Track which servers are currently reconnecting
+
+  useEffect(() => {
+    const pendingConfig = sessionStorage.getItem('pendingConfig');
+    const inflightConfig = sessionStorage.getItem('pendingConfig:inflight');
+    if (!pendingConfig && inflightConfig) {
+      sessionStorage.setItem('pendingConfig', inflightConfig);
+      sessionStorage.removeItem('pendingConfig:inflight');
+    }
+  }, []);
 
   const readStoredServers = useCallback((): StoredServer[] => {
-    if (typeof window === 'undefined') return []
+    if (typeof window === 'undefined') return [];
 
     try {
-      const mcpServers = JSON.parse(localStorage.getItem('mcpServers') || '[]')
-      return Array.isArray(mcpServers) ? mcpServers : []
+      const mcpServers = JSON.parse(localStorage.getItem('mcpServers') || '[]');
+      return Array.isArray(mcpServers) ? mcpServers : [];
     } catch (error) {
-      console.error('Failed to parse mcpServers:', error)
-      return []
+      console.error('Failed to parse mcpServers:', error);
+      return [];
     }
-  }, [])
+  }, []);
 
   // Load data for all servers
   const loadAllServersData = useCallback(async () => {
-    const currentStoredServers = readStoredServers()
-    const allServers = currentStoredServers.map((server) => server.id)
+    const currentStoredServers = readStoredServers();
+    const allServers = currentStoredServers.map((server) => server.id);
 
-    setStoredServers(currentStoredServers)
+    setStoredServers(currentStoredServers);
     setConfiguredApps(
       currentStoredServers.reduce<Record<string, string[]>>((configured, server) => {
-        configured[server.id] = Array.isArray(server.configuredApps)
-          ? server.configuredApps
-          : []
-        return configured
-      }, {})
-    )
+        configured[server.id] = Array.isArray(server.configuredApps) ? server.configuredApps : [];
+        return configured;
+      }, {}),
+    );
 
     // Update tray icon based on servers status
     if (window.electron?.updateServersStatus) {
-      window.electron.updateServersStatus(allServers.length > 0)
+      window.electron.updateServersStatus(allServers.length > 0);
     }
 
     if (allServers.length === 0) {
-      setIsLoading(false)
-      setServerClients({})
-      return
+      setIsLoading(false);
+      setServerClients({});
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const newServerClients: Record<string, MCPClient[]> = {}
+      const newServerClients: Record<string, MCPClient[]> = {};
 
       // Load capabilities for all servers in parallel
       await Promise.all(
         allServers.map(async (serverId) => {
           try {
-            const result = await getCapabilities(serverId)
+            const result = await getCapabilities(serverId);
 
             if (result.success && result.capabilities) {
               // Read directly from connections context; no dependency needed
-              const conn = connections.get(serverId)
-              const serverName = conn?.serverName || 'Gateway Server'
+              const conn = connections.get(serverId);
+              const serverName = conn?.serverName || 'Gateway Server';
 
-              const clientsList = convertCapabilitiesToClients(
-                result.capabilities,
-                serverName
-              )
-              newServerClients[serverId] = clientsList
+              const clientsList = convertCapabilitiesToClients(result.capabilities, serverName);
+              newServerClients[serverId] = clientsList;
             } else {
-              newServerClients[serverId] = []
+              newServerClients[serverId] = [];
             }
           } catch (error) {
-            newServerClients[serverId] = []
+            newServerClients[serverId] = [];
           }
-        })
-      )
+        }),
+      );
 
-      setServerClients(newServerClients)
+      setServerClients(newServerClients);
     } catch (error) {
-      console.error('Failed to load capabilities:', error)
-      toast.error('Failed to load capabilities')
-      setServerClients({})
+      console.error('Failed to load capabilities:', error);
+      toast.error('Failed to load capabilities');
+      setServerClients({});
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
     // Removed connections dependency to avoid reloading on every change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getCapabilities, readStoredServers])
+  }, [getCapabilities, readStoredServers]);
 
   // Load data
   useEffect(() => {
-    loadAllServersData()
-  }, [loadAllServersData])
+    loadAllServersData();
+  }, [loadAllServersData]);
 
   // Check for single reconnect data after returning from unlock-password page
   useEffect(() => {
-    const reconnectDataStr = sessionStorage.getItem('single-reconnect-data')
+    const reconnectDataStr = sessionStorage.getItem('single-reconnect-data');
     if (reconnectDataStr) {
-      console.log('🔄 Found single reconnect data, processing...')
-      sessionStorage.removeItem('single-reconnect-data')
+      console.log('🔄 Found single reconnect data, processing...');
+      sessionStorage.removeItem('single-reconnect-data');
 
-      const reconnectData = JSON.parse(reconnectDataStr)
+      const reconnectData = JSON.parse(reconnectDataStr);
 
       // Mark as reconnecting
-      setReconnectingServers((prev) =>
-        new Set(prev).add(reconnectData.serverId)
-      )
+      setReconnectingServers((prev) => new Set(prev).add(reconnectData.serverId));
 
       // Connect to server
       connectToServer({
         id: reconnectData.serverId,
         name: reconnectData.serverName,
         url: reconnectData.serverUrl,
-        token: reconnectData.token
+        token: reconnectData.token,
       })
         .then((result) => {
-          console.log('🔌 Reconnect result:', result)
+          console.log('🔌 Reconnect result:', result);
           if (result.success) {
-            console.log('✅ Reconnected successfully')
-            toast.success('Reconnected successfully')
+            console.log('✅ Reconnected successfully');
+            toast.success('Reconnected successfully');
             // Reload data
-            loadAllServersData()
+            loadAllServersData();
           } else {
-            console.error('❌ Reconnection failed:', result.error)
-            toast.error(`Reconnection failed: ${result.error}`)
+            console.error('❌ Reconnection failed:', result.error);
+            toast.error(`Reconnection failed: ${result.error}`);
           }
         })
         .catch((error) => {
-          console.error('❌ Reconnect error:', error)
-          toast.error('Reconnection failed')
+          console.error('❌ Reconnect error:', error);
+          toast.error('Reconnection failed');
         })
         .finally(() => {
           // Remove from reconnecting set
           setReconnectingServers((prev) => {
-            const newSet = new Set(prev)
-            newSet.delete(reconnectData.serverId)
-            return newSet
-          })
-        })
+            const newSet = new Set(prev);
+            newSet.delete(reconnectData.serverId);
+            return newSet;
+          });
+        });
     }
-  }, [])
+  }, []);
 
-  // Handle configuration returns from RestApi and CustomRemote pages
+  // Handle configuration returns from RestApi, CustomRemote, and CustomStdio pages
   useEffect(() => {
-    const pendingConfigStr = sessionStorage.getItem('pendingConfig')
-    if (pendingConfigStr) {
-      console.log('📝 Found pending configuration, processing...')
-      sessionStorage.removeItem('pendingConfig')
+    const pendingConfigStr = sessionStorage.getItem('pendingConfig');
+    if (!pendingConfigStr) return;
 
-      try {
-        const config = JSON.parse(pendingConfigStr)
-        const { serverId, mcpServerId, toolId, authConf, restfulApiAuth, remoteAuth } =
-          config
+    // Atomically claim: move to in-flight key so re-renders don't resubmit
+    sessionStorage.removeItem('pendingConfig');
+    sessionStorage.setItem('pendingConfig:inflight', pendingConfigStr);
 
-        // Call configureServer with the appropriate auth data
-        ;(async () => {
-          try {
-            setIsAuthenticating(true)
-            if (toolId) {
-              setAuthenticatingToolId(toolId)
-              setAuthStatus((prev) => ({ ...prev, [toolId]: 'connecting' }))
-            }
-
-            console.log('🚀 Calling configureServer with pending config:')
-            console.log('  serverId:', serverId)
-            console.log('  mcpServerId:', mcpServerId)
-            console.log('  authConf:', authConf ? 'present' : 'undefined')
-            console.log('  restfulApiAuth:', restfulApiAuth ? 'present' : 'undefined')
-            console.log('  remoteAuth:', remoteAuth ? 'present' : 'undefined')
-
-            const configResult = await configureServer(
-              serverId,
-              mcpServerId,
-              authConf,
-              restfulApiAuth,
-              remoteAuth
-            )
-
-            if (configResult.success) {
-              toast.success('Configuration saved successfully')
-              console.log('✅ Configuration successful:', configResult.data)
-              if (toolId) {
-                setAuthStatus((prev) => ({ ...prev, [toolId]: null }))
-              }
-              // Reload data to reflect changes
-              loadAllServersData()
-            } else {
-              toast.error(
-                `Failed to configure server: ${configResult.error}`
-              )
-              console.error('❌ Configuration failed:', configResult.error)
-              if (toolId) {
-                setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
-              }
-            }
-          } catch (error) {
-            console.error('❌ Configuration error:', error)
-            toast.error('Failed to configure server')
-            if (toolId) {
-              setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
-            }
-          } finally {
-            setIsAuthenticating(false)
-            setAuthenticatingToolId(null)
-          }
-        })()
-      } catch (error) {
-        console.error('Failed to parse pending config:', error)
-        toast.error('Failed to process configuration')
-      }
+    let config;
+    try {
+      config = JSON.parse(pendingConfigStr);
+    } catch (error) {
+      console.error('Failed to parse pending config:', error);
+      sessionStorage.removeItem('pendingConfig:inflight');
+      toast.error('Failed to process configuration');
+      return;
     }
-  }, [configureServer, loadAllServersData])
+
+    const { serverId, mcpServerId, toolId, authConf, restfulApiAuth, remoteAuth, stdioEnv } =
+      config;
+
+    (async () => {
+      try {
+        setIsAuthenticating(true);
+        if (toolId) {
+          setAuthenticatingToolId(toolId);
+          setAuthStatus((prev) => ({ ...prev, [toolId]: 'connecting' }));
+        }
+
+        const configResult = await configureServer(
+          serverId,
+          mcpServerId,
+          authConf,
+          restfulApiAuth,
+          remoteAuth,
+          stdioEnv,
+        );
+
+        if (configResult.success) {
+          sessionStorage.removeItem('pendingConfig:inflight');
+          toast.success('Configuration saved successfully');
+          if (toolId) {
+            setAuthStatus((prev) => ({ ...prev, [toolId]: null }));
+          }
+          loadAllServersData();
+        } else {
+          // Restore so user can retry by navigating back to config page
+          sessionStorage.setItem('pendingConfig', pendingConfigStr);
+          sessionStorage.removeItem('pendingConfig:inflight');
+          toast.error(`Failed to configure server: ${configResult.error}`);
+          if (toolId) {
+            setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }));
+          }
+        }
+      } catch (error) {
+        sessionStorage.setItem('pendingConfig', pendingConfigStr);
+        sessionStorage.removeItem('pendingConfig:inflight');
+        console.error('Configuration error:', error);
+        toast.error('Failed to configure server');
+        if (toolId) {
+          setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }));
+        }
+      } finally {
+        setIsAuthenticating(false);
+        setAuthenticatingToolId(null);
+      }
+    })();
+  }, [configureServer, loadAllServersData]);
 
   // Handle reconnect for failed servers
   const handleReconnect = useCallback(
     async (serverId: string) => {
       // Mark as reconnecting
-      setReconnectingServers((prev) => new Set(prev).add(serverId))
+      setReconnectingServers((prev) => new Set(prev).add(serverId));
 
       try {
-        console.log('🔄 Starting reconnect for server:', serverId)
+        console.log('🔄 Starting reconnect for server:', serverId);
 
         // Get server info from localStorage
-        const mcpServers = JSON.parse(
-          localStorage.getItem('mcpServers') || '[]'
-        )
-        const server = mcpServers.find((s: any) => s.id === serverId)
+        const mcpServers = JSON.parse(localStorage.getItem('mcpServers') || '[]');
+        const server = mcpServers.find((s: any) => s.id === serverId);
 
         if (!server) {
-          console.error('❌ Server not found:', serverId)
-          toast.error('Server not found')
-          return
+          console.error('❌ Server not found:', serverId);
+          toast.error('Server not found');
+          return;
         }
 
-        console.log('📋 Server info:', server)
+        console.log('📋 Server info:', server);
 
         // Get decrypted token from connection (if connected before) or decrypt it
-        const connection = connections.get(serverId)
-        let token = connection?.token
+        const connection = connections.get(serverId);
+        let token = connection?.token;
 
         if (!token) {
-          console.log('🔐 Token not in connection, need to decrypt')
+          console.log('🔐 Token not in connection, need to decrypt');
           // Need to decrypt token
-          const unlockedPassword = sessionStorage.getItem('unlocked-password')
+          const unlockedPassword = sessionStorage.getItem('unlocked-password');
           if (!unlockedPassword) {
-            console.log('❌ No unlocked password, redirecting to unlock page')
+            console.log('❌ No unlocked password, redirecting to unlock page');
 
             // Store server info for reconnect after unlock
             localStorage.setItem(
@@ -429,218 +399,198 @@ function DashboardContent() {
                 serverId: serverId,
                 serverName: server.serverName,
                 serverUrl: server.serverUrl,
-                token: server.token
-              })
-            )
+                token: server.token,
+              }),
+            );
 
             // Redirect to unlock password page
-            router.push(
-              `/unlock-password?returnUrl=/dashboard&purpose=single-reconnect`
-            )
-            return
+            router.push(`/unlock-password?returnUrl=/dashboard&purpose=single-reconnect`);
+            return;
           }
 
           if (window.electron?.crypto) {
-            console.log('🔓 Decrypting token...')
+            console.log('🔓 Decrypting token...');
             const decryptResult = await window.electron.crypto.decryptToken(
               server.token,
-              unlockedPassword
-            )
+              unlockedPassword,
+            );
             if (decryptResult.success) {
-              token = decryptResult.token
-              console.log('✅ Token decrypted successfully')
+              token = decryptResult.token;
+              console.log('✅ Token decrypted successfully');
             } else {
-              console.error('❌ Failed to decrypt token:', decryptResult.error)
-              toast.error('Failed to decrypt token')
-              return
+              console.error('❌ Failed to decrypt token:', decryptResult.error);
+              toast.error('Failed to decrypt token');
+              return;
             }
           }
         }
 
         if (!token) {
-          console.error('❌ Token not available')
-          toast.error('Token not available')
-          return
+          console.error('❌ Token not available');
+          toast.error('Token not available');
+          return;
         }
 
         // Reconnect
-        console.log('🔌 Attempting to reconnect...')
-        toast.info('Reconnecting...')
+        console.log('🔌 Attempting to reconnect...');
+        toast.info('Reconnecting...');
         const result = await connectToServer({
           id: serverId,
           name: server.serverName,
           url: server.serverUrl,
-          token: token
-        })
+          token: token,
+        });
 
-        console.log('🔌 Reconnect result:', result)
+        console.log('🔌 Reconnect result:', result);
 
         if (result.success) {
-          console.log('✅ Reconnected successfully')
-          toast.success('Reconnected successfully')
+          console.log('✅ Reconnected successfully');
+          toast.success('Reconnected successfully');
           // Reload data
-          await loadAllServersData()
+          await loadAllServersData();
         } else {
-          console.error('❌ Reconnection failed:', result.error)
-          toast.error(`Reconnection failed: ${result.error}`)
+          console.error('❌ Reconnection failed:', result.error);
+          toast.error(`Reconnection failed: ${result.error}`);
         }
       } catch (error) {
-        console.error('❌ Reconnect error:', error)
-        toast.error('Reconnection failed')
+        console.error('❌ Reconnect error:', error);
+        toast.error('Reconnection failed');
       } finally {
         // Remove from reconnecting set
         setReconnectingServers((prev) => {
-          const newSet = new Set(prev)
-          newSet.delete(serverId)
-          return newSet
-        })
+          const newSet = new Set(prev);
+          newSet.delete(serverId);
+          return newSet;
+        });
       }
     },
-    [connections, connectToServer, loadAllServersData, router]
-  )
+    [connections, connectToServer, loadAllServersData, router],
+  );
 
   // Check which apps actually have this server configured in their config files
-  const checkActualConfiguration = useCallback(
-    async (serverId: string): Promise<string[]> => {
-      try {
-        // Get server info from localStorage
-        const mcpServers = JSON.parse(
-          localStorage.getItem('mcpServers') || '[]'
-        )
-        const server = mcpServers.find((s: any) => s.id === serverId)
+  const checkActualConfiguration = useCallback(async (serverId: string): Promise<string[]> => {
+    try {
+      // Get server info from localStorage
+      const mcpServers = JSON.parse(localStorage.getItem('mcpServers') || '[]');
+      const server = mcpServers.find((s: any) => s.id === serverId);
 
-        if (!server) {
-          console.warn('Server not found:', serverId)
-          return []
-        }
+      if (!server) {
+        console.warn('Server not found:', serverId);
+        return [];
+      }
 
-        const serverName = server.serverName || 'peta-mcp-desk'
-        const appNames = ['claude', 'cursor', 'vscode', 'windsurf', 'antigravity']
-        const actualConfigured: string[] = []
+      const serverName = server.serverName || 'peta-mcp-desk';
+      const appNames = ['claude', 'cursor', 'vscode', 'windsurf', 'antigravity'];
+      const actualConfigured: string[] = [];
 
-        // Check each app's config file
-        for (const appName of appNames) {
-          try {
-            if (window.electron?.mcpConfig?.getServers) {
-              const result = await window.electron.mcpConfig.getServers(appName)
+      // Check each app's config file
+      for (const appName of appNames) {
+        try {
+          if (window.electron?.mcpConfig?.getServers) {
+            const result = await window.electron.mcpConfig.getServers(appName);
 
-              if (result?.success && result.servers) {
-                // Check if our server exists in the config
-                const hasServer = Object.keys(result.servers).includes(
-                  serverName
-                )
-                if (hasServer) {
-                  actualConfigured.push(appName)
-                }
+            if (result?.success && result.servers) {
+              // Check if our server exists in the config
+              const hasServer = Object.keys(result.servers).includes(serverName);
+              if (hasServer) {
+                actualConfigured.push(appName);
               }
             }
-          } catch (error) {
-            console.error(`Failed to check config for ${appName}:`, error)
           }
+        } catch (error) {
+          console.error(`Failed to check config for ${appName}:`, error);
         }
-
-        // Update localStorage to reflect actual state
-        const updatedServers = mcpServers.map((s: any) => {
-          if (s.id === serverId) {
-            return { ...s, configuredApps: actualConfigured }
-          }
-          return s
-        })
-        localStorage.setItem('mcpServers', JSON.stringify(updatedServers))
-        setStoredServers(updatedServers)
-
-        // Update state
-        setConfiguredApps((prev) => ({
-          ...prev,
-          [serverId]: actualConfigured
-        }))
-
-        return actualConfigured
-      } catch (error) {
-        console.error('Failed to check actual configuration:', error)
-        return []
       }
-    },
-    []
-  )
+
+      // Update localStorage to reflect actual state
+      const updatedServers = mcpServers.map((s: any) => {
+        if (s.id === serverId) {
+          return { ...s, configuredApps: actualConfigured };
+        }
+        return s;
+      });
+      localStorage.setItem('mcpServers', JSON.stringify(updatedServers));
+      setStoredServers(updatedServers);
+
+      // Update state
+      setConfiguredApps((prev) => ({
+        ...prev,
+        [serverId]: actualConfigured,
+      }));
+
+      return actualConfigured;
+    } catch (error) {
+      console.error('Failed to check actual configuration:', error);
+      return [];
+    }
+  }, []);
 
   // Handle config to specific app - entry point
   const handleConfigToApp = useCallback(
     async (serverId: string, appName: string) => {
       // Navigate to config-to-client page which handles decryption
-      router.push(`/config-to-client?serverId=${serverId}&appName=${appName}`)
+      router.push(`/config-to-client?serverId=${serverId}&appName=${appName}`);
     },
-    [router]
-  )
+    [router],
+  );
 
   // Listen for capabilities change notifications and auto-refresh data
   useEffect(() => {
     const handleCapabilitiesChanged = (event: CustomEvent) => {
-      const { serverId, serverName } = event.detail
-      console.log(
-        `🔄 [Dashboard] Capabilities changed for ${serverName}, auto-refreshing...`
-      )
+      const { serverId, serverName } = event.detail;
+      console.log(`🔄 [Dashboard] Capabilities changed for ${serverName}, auto-refreshing...`);
 
       // Reload all data when any server capabilities change
-      loadAllServersData()
-      toast.success(`Capabilities updated for ${serverName}`)
-    }
+      loadAllServersData();
+      toast.success(`Capabilities updated for ${serverName}`);
+    };
 
-    window.addEventListener(
-      'capabilities-changed',
-      handleCapabilitiesChanged as any
-    )
+    window.addEventListener('capabilities-changed', handleCapabilitiesChanged as any);
 
     return () => {
-      window.removeEventListener(
-        'capabilities-changed',
-        handleCapabilitiesChanged as any
-      )
-    }
-  }, [loadAllServersData])
+      window.removeEventListener('capabilities-changed', handleCapabilitiesChanged as any);
+    };
+  }, [loadAllServersData]);
 
   // Listen for native menu actions
   useEffect(() => {
-    if (
-      typeof window === 'undefined' ||
-      !window.electron?.onConnectionMenuAction
-    ) {
-      return
+    if (typeof window === 'undefined' || !window.electron?.onConnectionMenuAction) {
+      return;
     }
 
     const handleMenuAction = (data: { serverId: string; action: string }) => {
-      console.log('Connection menu action:', data)
-      const { serverId, action } = data
+      console.log('Connection menu action:', data);
+      const { serverId, action } = data;
 
       if (action === 'add-url') {
-        console.log('Add MCP Server with URL for server:', serverId)
+        console.log('Add MCP Server with URL for server:', serverId);
         // Navigate to add-server-url page with serverId
-        router.push(`/add-server-url?serverId=${serverId}`)
+        router.push(`/add-server-url?serverId=${serverId}`);
       } else if (action === 'add-json') {
-        console.log('Add MCP Server with JSON for server:', serverId)
+        console.log('Add MCP Server with JSON for server:', serverId);
         // Navigate to add-server-json page with serverId
-        router.push(`/add-server-json?serverId=${serverId}`)
+        router.push(`/add-server-json?serverId=${serverId}`);
       } else if (action.startsWith('config-')) {
         // Handle configuration for clients (claude, cursor, vscode, windsurf)
-        const appName = action.replace('config-', '')
-        console.log(`Config to ${appName} for server:`, serverId)
+        const appName = action.replace('config-', '');
+        console.log(`Config to ${appName} for server:`, serverId);
 
         // Pull server info from localStorage
-        handleConfigToApp(serverId, appName)
+        handleConfigToApp(serverId, appName);
       }
-    }
+    };
 
-    window.electron.onConnectionMenuAction(handleMenuAction)
-  }, [handleConfigToApp, router])
+    window.electron.onConnectionMenuAction(handleMenuAction);
+  }, [handleConfigToApp, router]);
 
   // Clear all cache function
   const clearAllCache = useCallback(async () => {
     try {
       const confirmation = confirm(
-        'Are you sure you want to clear all cached data? This will:\n- Clear all MCP server configurations\n- Clear Master Password\n- Clear Dashboard cache\n- Reset the app to initial state\n\nThis operation cannot be undone!'
-      )
+        'Are you sure you want to clear all cached data? This will:\n- Clear all MCP server configurations\n- Clear Master Password\n- Clear Dashboard cache\n- Reset the app to initial state\n\nThis operation cannot be undone!',
+      );
 
-      if (!confirmation) return
+      if (!confirmation) return;
 
       const cacheKeys = [
         'dashboardData',
@@ -649,212 +599,208 @@ function DashboardContent() {
         'mcpServerConnected',
         'editingServer',
         'masterPasswordSet',
-        'dashboard_capabilities_cached'
-      ]
+        'dashboard_capabilities_cached',
+      ];
 
       cacheKeys.forEach((key) => {
-        localStorage.removeItem(key)
-      })
+        localStorage.removeItem(key);
+      });
 
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith('selectedClients_')) {
-          localStorage.removeItem(key)
+          localStorage.removeItem(key);
         }
-      })
+      });
 
       if (window.electron?.clearAllAppData) {
         try {
-          const result = await window.electron.clearAllAppData()
+          const result = await window.electron.clearAllAppData();
           if (result?.success) {
-            console.log('All application data cleared successfully')
+            console.log('All application data cleared successfully');
           } else {
-            console.error('Failed to clear application data:', result?.error)
+            console.error('Failed to clear application data:', result?.error);
           }
         } catch (error) {
-          console.error('Failed to clear application data:', error)
+          console.error('Failed to clear application data:', error);
         }
       }
 
       if (window.electron?.updateConnectionStatus) {
-        window.electron.updateConnectionStatus(false)
+        window.electron.updateConnectionStatus(false);
       }
 
-      setStoredServers([])
-      setConfiguredApps({})
-      setServerClients({})
-      setIsLoading(false)
+      setStoredServers([]);
+      setConfiguredApps({});
+      setServerClients({});
+      setIsLoading(false);
 
-      console.log('All cache and data cleared successfully')
-      alert(
-        'Cache cleared successfully! The app will redirect to the initial setup page.'
-      )
+      console.log('All cache and data cleared successfully');
+      alert('Cache cleared successfully! The app will redirect to the initial setup page.');
 
-      router.push('/welcome')
+      router.push('/welcome');
     } catch (error) {
-      console.error('Failed to clear all cache:', error)
-      alert(
-        'Error clearing cache: ' +
-          (error instanceof Error ? error.message : String(error))
-      )
+      console.error('Failed to clear all cache:', error);
+      alert('Error clearing cache: ' + (error instanceof Error ? error.message : String(error)));
     }
-  }, [router])
+  }, [router]);
 
   // Handle auto-lock time selection
   const handleAutoLockTimeSelect = useCallback(
     (time: number) => {
-      setAutoLockTimer(time)
-      updateAutoLockTimer(time)
+      setAutoLockTimer(time);
+      updateAutoLockTimer(time);
     },
-    [updateAutoLockTimer]
-  )
+    [updateAutoLockTimer],
+  );
 
   // Listen for settings menu actions
   useEffect(() => {
-    if (
-      typeof window === 'undefined' ||
-      !window.electron?.onSettingsMenuAction
-    ) {
-      return
+    if (typeof window === 'undefined' || !window.electron?.onSettingsMenuAction) {
+      return;
     }
 
-    const handleSettingsMenuAction = async (data: {
-      action: string
-      value?: number
-    }) => {
-      console.log('Settings menu action:', data)
-      const { action, value } = data
+    const handleSettingsMenuAction = async (data: { action: string; value?: number }) => {
+      console.log('Settings menu action:', data);
+      const { action, value } = data;
 
       switch (action) {
         case 'add-server':
-          router.push('/mcp-setup')
-          break
+          router.push('/mcp-setup');
+          break;
         case 'manage-server':
-          router.push('/server-management')
-          break
+          router.push('/server-management');
+          break;
         case 'add-client':
-          router.push('/add-mcp-client-manually?mode=add')
-          break
+          router.push('/add-mcp-client-manually?mode=add');
+          break;
         case 'auto-lock-time':
           // Handle auto-lock time change
           if (value !== undefined) {
-            handleAutoLockTimeSelect(value)
+            handleAutoLockTimeSelect(value);
           }
-          break
+          break;
         case 'security':
-          router.push('/security-settings')
-          break
+          router.push('/security-settings');
+          break;
         case 'backup':
-          router.push('/backup-restore')
-          break
+          router.push('/backup-restore');
+          break;
         case 'playground':
-          console.log('Navigate to playground')
-          break
+          console.log('Navigate to playground');
+          break;
         case 'reset-password':
-          router.push('/reset-master-password')
-          break
+          router.push('/reset-master-password');
+          break;
         case 'clear-cache':
-          await clearAllCache()
-          break
+          await clearAllCache();
+          break;
         default:
-          console.log('Unknown settings action:', action)
+          console.log('Unknown settings action:', action);
       }
-    }
+    };
 
-    window.electron.onSettingsMenuAction(handleSettingsMenuAction)
-  }, [router, handleAutoLockTimeSelect, clearAllCache])
+    window.electron.onSettingsMenuAction(handleSettingsMenuAction);
+  }, [router, handleAutoLockTimeSelect, clearAllCache]);
 
   useEffect(() => {
     // Sync auto-lock timer settings from localStorage to global state
     try {
-      const savedAutoLockTimer = localStorage.getItem('autoLockTimer')
+      const savedAutoLockTimer = localStorage.getItem('autoLockTimer');
       if (savedAutoLockTimer) {
-        const timerValue = parseInt(savedAutoLockTimer)
+        const timerValue = parseInt(savedAutoLockTimer);
         if (timerValue !== globalAutoLockTimer) {
-          updateAutoLockTimer(timerValue)
+          updateAutoLockTimer(timerValue);
         }
       }
     } catch (error) {
-      console.error('Failed to sync autoLockTimer:', error)
+      console.error('Failed to sync autoLockTimer:', error);
     }
 
     // Load server switch states
     try {
-      const savedSwitches = localStorage.getItem('serverSwitches')
+      const savedSwitches = localStorage.getItem('serverSwitches');
       if (savedSwitches) {
-        const switches = JSON.parse(savedSwitches)
-        setServerSwitches(switches)
+        const switches = JSON.parse(savedSwitches);
+        setServerSwitches(switches);
       }
     } catch (error) {
-      console.error('Failed to load server switches:', error)
+      console.error('Failed to load server switches:', error);
     }
 
-    setAutoLockTimer(globalAutoLockTimer)
-
-  }, [globalAutoLockTimer, updateAutoLockTimer])
+    setAutoLockTimer(globalAutoLockTimer);
+  }, [globalAutoLockTimer, updateAutoLockTimer]);
 
   // OAuth authorization handling
   // Helper function to get auth type display name
   const getAuthTypeName = (authType: ServerAuthType): string => {
     switch (authType) {
-      case ServerAuthType.ApiKey: return 'API Key'
-      case ServerAuthType.GoogleAuth: return 'Google Drive'
-      case ServerAuthType.NotionAuth: return 'Notion'
-      case ServerAuthType.FigmaAuth: return 'Figma'
-      case ServerAuthType.GoogleCalendarAuth: return 'Google Calendar'
-      case ServerAuthType.GithubAuth: return 'GitHub'
-      case ServerAuthType.ZendeskAuth: return 'Zendesk'
-      case ServerAuthType.CanvasAuth: return 'Canvas'
-      case ServerAuthType.CanvaAuth: return 'Canva'
-      default: return 'OAuth'
+      case ServerAuthType.ApiKey:
+        return 'API Key';
+      case ServerAuthType.GoogleAuth:
+        return 'Google Drive';
+      case ServerAuthType.NotionAuth:
+        return 'Notion';
+      case ServerAuthType.FigmaAuth:
+        return 'Figma';
+      case ServerAuthType.GoogleCalendarAuth:
+        return 'Google Calendar';
+      case ServerAuthType.GithubAuth:
+        return 'GitHub';
+      case ServerAuthType.ZendeskAuth:
+        return 'Zendesk';
+      case ServerAuthType.CanvasAuth:
+        return 'Canvas';
+      case ServerAuthType.CanvaAuth:
+        return 'Canva';
+      default:
+        return 'OAuth';
     }
-  }
+  };
 
   const handleOAuthAuth = async (
     gatewayServerId: string,
     mcpServerId?: string,
     toolId?: string,
-    authType?: ServerAuthType
+    authType?: ServerAuthType,
   ) => {
     try {
-      setIsAuthenticating(true)
+      setIsAuthenticating(true);
       if (toolId) {
-        setAuthenticatingToolId(toolId)
-        setAuthStatus((prev) => ({ ...prev, [toolId]: 'connecting' }))
+        setAuthenticatingToolId(toolId);
+        setAuthStatus((prev) => ({ ...prev, [toolId]: 'connecting' }));
       }
 
       // Get the tool's configTemplate
-      const clients = serverClients[gatewayServerId] || []
-      const tool = clients
-        .flatMap((c) => c.tools)
-        .find((t) => t.serverId === mcpServerId)
+      const clients = serverClients[gatewayServerId] || [];
+      const tool = clients.flatMap((c) => c.tools).find((t) => t.serverId === mcpServerId);
 
       if (!tool || !tool.configTemplate || !tool.allowUserInput) {
-        console.error('Tool configTemplate not found')
-        setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-        setIsAuthenticating(false)
-        setAuthenticatingToolId(null)
-        return
+        console.error('Tool configTemplate not found');
+        setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }));
+        setIsAuthenticating(false);
+        setAuthenticatingToolId(null);
+        return;
       }
 
       // Determine authType from tool if not provided
-      const effectiveAuthType = authType ?? tool.authType
+      const effectiveAuthType = authType ?? tool.authType;
 
       // Parse configTemplate to get oAuthConfig
-      let configTemplateObj
+      let configTemplateObj;
       try {
-        configTemplateObj = JSON.parse(tool.configTemplate)
+        configTemplateObj = JSON.parse(tool.configTemplate);
       } catch (error) {
-        console.error('Failed to parse configTemplate:', error)
-        setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-        setIsAuthenticating(false)
-        setAuthenticatingToolId(null)
-        return
+        console.error('Failed to parse configTemplate:', error);
+        setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }));
+        setIsAuthenticating(false);
+        setAuthenticatingToolId(null);
+        return;
       }
 
       // Declare auth variables for different category types
-      let authConf: Array<{ key: string; value: string; dataType: number }> | undefined
-      let restfulApiAuth: any | undefined
-      let remoteAuth: { params: Record<string, any>; headers: Record<string, any> } | undefined
+      let authConf: Array<{ key: string; value: string; dataType: number }> | undefined;
+      let restfulApiAuth: any | undefined;
+      let remoteAuth: { params: Record<string, any>; headers: Record<string, any> } | undefined;
 
       switch (tool.category) {
         case ServerCategory.RestApi: {
@@ -865,17 +811,17 @@ function DashboardContent() {
               configTemplate: tool.configTemplate,
               serverId: gatewayServerId,
               mcpServerId: mcpServerId,
-              toolId: toolId
-            })
-          )
+              toolId: toolId,
+            }),
+          );
 
           // Navigate with only IDs (no large data in URL)
           router.push(
-            `/configure-restapi?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`
-          )
-          setIsAuthenticating(false)
-          setAuthenticatingToolId(null)
-          return
+            `/configure-restapi?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`,
+          );
+          setIsAuthenticating(false);
+          setAuthenticatingToolId(null);
+          return;
         }
         case ServerCategory.CustomRemote: {
           // Store configTemplate in sessionStorage to avoid URL length limitations
@@ -885,30 +831,50 @@ function DashboardContent() {
               configTemplate: tool.configTemplate,
               serverId: gatewayServerId,
               mcpServerId: mcpServerId,
-              toolId: toolId
-            })
-          )
+              toolId: toolId,
+            }),
+          );
 
           // Navigate with only IDs (no large data in URL)
           router.push(
-            `/configure-remote?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`
-          )
-          setIsAuthenticating(false)
-          setAuthenticatingToolId(null)
-          return
+            `/configure-remote?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`,
+          );
+          setIsAuthenticating(false);
+          setAuthenticatingToolId(null);
+          return;
+        }
+        case ServerCategory.CustomStdio: {
+          // Store configTemplate in sessionStorage to avoid URL length limitations
+          sessionStorage.setItem(
+            'stdio-config-template',
+            JSON.stringify({
+              configTemplate: tool.configTemplate,
+              serverId: gatewayServerId,
+              mcpServerId: mcpServerId,
+              toolId: toolId,
+            }),
+          );
+
+          // Navigate with only IDs (no large data in URL)
+          router.push(
+            `/configure-stdio?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`,
+          );
+          setIsAuthenticating(false);
+          setAuthenticatingToolId(null);
+          return;
         }
         case ServerCategory.Template:
           // Template server with ApiKey uses credentials configuration
           if (effectiveAuthType === ServerAuthType.ApiKey) {
-            const credentials = configTemplateObj.credentials
+            const credentials = configTemplateObj.credentials;
 
             if (!Array.isArray(credentials) || credentials.length === 0) {
-              console.error('credentials not found or empty in configTemplate')
-              toast.error('Credentials not found in configuration template')
-              setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-              setIsAuthenticating(false)
-              setAuthenticatingToolId(null)
-              return
+              console.error('credentials not found or empty in configTemplate');
+              toast.error('Credentials not found in configuration template');
+              setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }));
+              setIsAuthenticating(false);
+              setAuthenticatingToolId(null);
+              return;
             }
 
             // Store configTemplate in sessionStorage to avoid URL length limitations
@@ -918,134 +884,126 @@ function DashboardContent() {
                 configTemplate: tool.configTemplate,
                 serverId: gatewayServerId,
                 mcpServerId: mcpServerId,
-                toolId: toolId
-              })
-            )
+                toolId: toolId,
+              }),
+            );
 
             // Navigate with only IDs (no large data in URL)
             router.push(
-              `/configure-credentials?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`
-            )
-            setIsAuthenticating(false)
-            setAuthenticatingToolId(null)
-            return
+              `/configure-credentials?serverId=${gatewayServerId}&mcpServerId=${mcpServerId}&toolId=${toolId}`,
+            );
+            setIsAuthenticating(false);
+            setAuthenticatingToolId(null);
+            return;
           }
 
           // Template-specific OAuth flow (config-driven)
-          const oAuthConfig = configTemplateObj.oAuthConfig
+          const oAuthConfig = configTemplateObj.oAuthConfig;
           if (!oAuthConfig) {
-            console.error('oAuthConfig not found in configTemplate')
-            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-            setIsAuthenticating(false)
-            setAuthenticatingToolId(null)
-            return
+            console.error('oAuthConfig not found in configTemplate');
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }));
+            setIsAuthenticating(false);
+            setAuthenticatingToolId(null);
+            return;
           }
 
           if (!oAuthConfig.deskClientId) {
-            console.error('deskClientId not found in oAuthConfig')
-            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-            setIsAuthenticating(false)
-            setAuthenticatingToolId(null)
-            return
+            console.error('deskClientId not found in oAuthConfig');
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }));
+            setIsAuthenticating(false);
+            setAuthenticatingToolId(null);
+            return;
           }
 
           if (!oAuthConfig.authorizationUrl || !oAuthConfig.responseType) {
-            console.error('oAuthConfig missing required fields')
-            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-            setIsAuthenticating(false)
-            setAuthenticatingToolId(null)
-            return
+            console.error('oAuthConfig missing required fields');
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }));
+            setIsAuthenticating(false);
+            setAuthenticatingToolId(null);
+            return;
           }
 
           const isCanvaAuth =
             configTemplateObj?.authType === ServerAuthType.CanvaAuth ||
-            effectiveAuthType === ServerAuthType.CanvaAuth
-          const redirectUri = isCanvaAuth
-            ? 'http://127.0.0.1:34327'
-            : 'http://localhost'
-          let pkceVerifier: string | undefined
+            effectiveAuthType === ServerAuthType.CanvaAuth;
+          const redirectUri = isCanvaAuth ? 'http://127.0.0.1:34327' : 'http://localhost';
+          let pkceVerifier: string | undefined;
           let resolvedOAuthConfig = {
             ...oAuthConfig,
-            redirectUri
-          }
+            redirectUri,
+          };
 
           try {
-            const pkceConfig = getOAuthPKCEConfig(oAuthConfig)
+            const pkceConfig = getOAuthPKCEConfig(oAuthConfig);
             if (pkceConfig.required) {
-              const pkceParams = await generateOAuthPKCEParams(pkceConfig.method)
-              pkceVerifier = pkceParams.codeVerifier
+              const pkceParams = await generateOAuthPKCEParams(pkceConfig.method);
+              pkceVerifier = pkceParams.codeVerifier;
               resolvedOAuthConfig = {
                 ...resolvedOAuthConfig,
                 extraParams: {
                   ...(resolvedOAuthConfig.extraParams || {}),
                   code_challenge: pkceParams.codeChallenge,
-                  code_challenge_method: pkceConfig.method
-                }
-              }
+                  code_challenge_method: pkceConfig.method,
+                },
+              };
             }
           } catch (error) {
-            console.error('Invalid PKCE configuration:', error)
-            toast.error(
-              error instanceof Error
-                ? error.message
-                : 'Invalid PKCE configuration'
-            )
-            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-            setIsAuthenticating(false)
-            setAuthenticatingToolId(null)
-            return
+            console.error('Invalid PKCE configuration:', error);
+            toast.error(error instanceof Error ? error.message : 'Invalid PKCE configuration');
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }));
+            setIsAuthenticating(false);
+            setAuthenticatingToolId(null);
+            return;
           }
 
           // Perform OAuth authorization through Electron
-          const authResult = await (
-            window as any
-          ).electronAPI.oauth.authorize(resolvedOAuthConfig)
+          const authResult = await (window as any).electronAPI.oauth.authorize(resolvedOAuthConfig);
 
-          console.log('🔍 Full auth result:', authResult)
+          console.log('🔍 Full auth result:', authResult);
 
           if (!authResult?.success) {
-            throw new Error(authResult?.error || 'OAuth authorization failed')
+            throw new Error(authResult?.error || 'OAuth authorization failed');
           }
 
-          const code = authResult.code
-          const effectiveRedirectUri = authResult.redirectUri || redirectUri
+          const code = authResult.code;
+          const effectiveRedirectUri = authResult.redirectUri || redirectUri;
 
           if (!code || !effectiveRedirectUri) {
-            console.error('OAuth code or redirectUri is missing')
-            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }))
-            setIsAuthenticating(false)
-            setAuthenticatingToolId(null)
-            return
+            console.error('OAuth code or redirectUri is missing');
+            setAuthStatus((prev) => ({ ...prev, [toolId || '']: 'failed' }));
+            setIsAuthenticating(false);
+            setAuthenticatingToolId(null);
+            return;
           }
 
           authConf = [
             {
               key: 'YOUR_OAUTH_CODE',
               value: code,
-              dataType: 1
+              dataType: 1,
             },
             {
               key: 'YOUR_OAUTH_REDIRECT_URL',
               value: effectiveRedirectUri,
-              dataType: 1
-            }
-          ]
+              dataType: 1,
+            },
+          ];
 
           if (pkceVerifier) {
             authConf.push({
               key: OAUTH_CODE_VERIFIER_KEY,
               value: pkceVerifier,
-              dataType: 1
-            })
+              dataType: 1,
+            });
           }
 
           if (mcpServerId && gatewayServerId) {
             // After successful authorization, notify core via socket
-            console.log('====================================')
-            console.log('📤 Sending to Core (configure_server):')
-            console.log('====================================')
-            console.log('Gateway Server ID:', gatewayServerId)
-            console.log('MCP Server ID:', mcpServerId)
+            console.log('====================================');
+            console.log('📤 Sending to Core (configure_server):');
+            console.log('====================================');
+            console.log('Gateway Server ID:', gatewayServerId);
+            console.log('MCP Server ID:', mcpServerId);
 
             // Send configuration via socket
             const configResult = await configureServer(
@@ -1053,184 +1011,188 @@ function DashboardContent() {
               mcpServerId,
               authConf,
               restfulApiAuth,
-              remoteAuth
-            )
+              remoteAuth,
+            );
 
             if (!configResult.success) {
-              toast.error(`Failed to configure server: ${configResult.error}`)
+              toast.error(`Failed to configure server: ${configResult.error}`);
               if (toolId) {
-                setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
+                setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }));
               }
-              setIsAuthenticating(false)
-              setAuthenticatingToolId(null)
-              return
+              setIsAuthenticating(false);
+              setAuthenticatingToolId(null);
+              return;
             }
             if (toolId) {
-              setAuthStatus((prev) => ({ ...prev, [toolId]: null }))
+              setAuthStatus((prev) => ({ ...prev, [toolId]: null }));
             }
 
-            console.log('✅ Core notified successfully:', configResult.data)
+            console.log('✅ Core notified successfully:', configResult.data);
           }
-          break
+          break;
         default:
-          console.error('Unknown tool category:', tool.category)
-          break
+          console.error('Unknown tool category:', tool.category);
+          break;
       }
     } catch (error) {
-      console.error('OAuth auth error:', error)
-      toast.error(`Failed to authorize ${getAuthTypeName(authType ?? ServerAuthType.ApiKey)}`)
+      console.error('OAuth auth error:', error);
+      toast.error(`Failed to authorize ${getAuthTypeName(authType ?? ServerAuthType.ApiKey)}`);
       if (toolId) {
-        setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }))
+        setAuthStatus((prev) => ({ ...prev, [toolId]: 'failed' }));
       }
     } finally {
-      setIsAuthenticating(false)
-      setAuthenticatingToolId(null)
+      setIsAuthenticating(false);
+      setAuthenticatingToolId(null);
     }
-  }
+  };
 
   // Show disconnect authorization confirmation dialog
   const handleOAuthLogout = (
     gatewayServerId: string,
     mcpServerId?: string,
     authType?: number,
-    category?: number
+    category?: number,
   ) => {
     // Store gatewayServerId, mcpServerId, authType, and category for confirmDisconnect
     setDisconnectTargetServerId(
-      mcpServerId ? `${gatewayServerId}:${mcpServerId}:${authType}:${category}` : undefined
-    )
-    setShowDisconnectDialog(true)
-  }
+      mcpServerId ? `${gatewayServerId}:${mcpServerId}:${authType}:${category}` : undefined,
+    );
+    setShowDisconnectDialog(true);
+  };
 
   // Confirm disconnect authorization
   const confirmDisconnect = async () => {
     try {
-      setIsAuthenticating(true) // Use the same loading state
+      setIsAuthenticating(true); // Use the same loading state
 
-      if (!disconnectTargetServerId) return
+      if (!disconnectTargetServerId) return;
 
       // Parse gatewayServerId, mcpServerId, authType, and category
       const [gatewayServerId, mcpServerId, authTypeStr, categoryStr] =
-        disconnectTargetServerId.split(':')
-      const authType = parseInt(authTypeStr, 10)
-      const category = parseInt(categoryStr, 10)
+        disconnectTargetServerId.split(':');
+      const authType = parseInt(authTypeStr, 10);
+      const category = parseInt(categoryStr, 10);
 
-      // Check if this is RestApi or CustomRemote (no OAuth logout needed)
-      if (category === ServerCategory.RestApi || category === ServerCategory.CustomRemote) {
-        // Direct unconfigure for RestApi/CustomRemote - no OAuth logout
-        console.log('====================================')
-        console.log('📤 Sending to Core (unconfigure_server):')
-        console.log('====================================')
-        console.log('Gateway Server ID:', gatewayServerId)
-        console.log('MCP Server ID:', mcpServerId)
-        console.log('Category:', category === ServerCategory.RestApi ? 'RestApi' : 'CustomRemote')
-        console.log('====================================')
+      // Check if this is RestApi, CustomRemote, or CustomStdio (no OAuth logout needed)
+      if (
+        category === ServerCategory.RestApi ||
+        category === ServerCategory.CustomRemote ||
+        category === ServerCategory.CustomStdio
+      ) {
+        // Direct unconfigure for RestApi/CustomRemote/CustomStdio - no OAuth logout
+        console.log('====================================');
+        console.log('📤 Sending to Core (unconfigure_server):');
+        console.log('====================================');
+        console.log('Gateway Server ID:', gatewayServerId);
+        console.log('MCP Server ID:', mcpServerId);
+        console.log(
+          'Category:',
+          category === ServerCategory.RestApi
+            ? 'RestApi'
+            : category === ServerCategory.CustomRemote
+              ? 'CustomRemote'
+              : 'CustomStdio',
+        );
+        console.log('====================================');
 
-        const unconfigResult = await unconfigureServer(gatewayServerId, mcpServerId)
+        const unconfigResult = await unconfigureServer(gatewayServerId, mcpServerId);
 
         if (unconfigResult.success) {
-          console.log('✅ Core notified successfully:', unconfigResult.data)
-          toast.success('Configuration removed successfully')
+          console.log('✅ Core notified successfully:', unconfigResult.data);
+          toast.success('Configuration removed successfully');
           // Refresh data to update configured status
-          await loadAllServersData()
+          await loadAllServersData();
         } else {
-          console.warn('Failed to unconfigure server:', unconfigResult.error)
-          toast.error(`Failed to remove configuration: ${unconfigResult.error}`)
+          console.warn('Failed to unconfigure server:', unconfigResult.error);
+          toast.error(`Failed to remove configuration: ${unconfigResult.error}`);
         }
       } else {
         // Template server with OAuth - remove configuration only
-        console.log('====================================')
-        console.log('📤 Sending to Core (unconfigure_server):')
-        console.log('====================================')
-        console.log('Gateway Server ID:', gatewayServerId)
-        console.log('MCP Server ID:', mcpServerId)
-        console.log('====================================')
+        console.log('====================================');
+        console.log('📤 Sending to Core (unconfigure_server):');
+        console.log('====================================');
+        console.log('Gateway Server ID:', gatewayServerId);
+        console.log('MCP Server ID:', mcpServerId);
+        console.log('====================================');
 
-        const unconfigResult = await unconfigureServer(gatewayServerId, mcpServerId)
+        const unconfigResult = await unconfigureServer(gatewayServerId, mcpServerId);
 
         if (unconfigResult.success) {
-          console.log('✅ Core notified successfully:', unconfigResult.data)
-          toast.success(`Disconnected from ${getAuthTypeName(authType)}`)
+          console.log('✅ Core notified successfully:', unconfigResult.data);
+          toast.success(`Disconnected from ${getAuthTypeName(authType)}`);
           // Refresh data to update configured status
-          await loadAllServersData()
+          await loadAllServersData();
         } else {
-          console.warn('Failed to unconfigure server:', unconfigResult.error)
-          toast.error(`Failed to remove configuration: ${unconfigResult.error}`)
+          console.warn('Failed to unconfigure server:', unconfigResult.error);
+          toast.error(`Failed to remove configuration: ${unconfigResult.error}`);
         }
       }
     } catch (error) {
-      console.error('Disconnect error:', error)
-      toast.error('Failed to disconnect')
+      console.error('Disconnect error:', error);
+      toast.error('Failed to disconnect');
     } finally {
-      setIsAuthenticating(false)
-      setAuthenticatingToolId(null)
-      setShowDisconnectDialog(false)
-      setDisconnectTargetServerId(undefined)
+      setIsAuthenticating(false);
+      setAuthenticatingToolId(null);
+      setShowDisconnectDialog(false);
+      setDisconnectTargetServerId(undefined);
     }
-  }
+  };
 
-  const saveData = async (
-    gatewayServerId: string,
-    updatedClients: MCPClient[]
-  ) => {
+  const saveData = async (gatewayServerId: string, updatedClients: MCPClient[]) => {
     try {
-      const capabilities = convertClientsToCapabilities(updatedClients)
+      const capabilities = convertClientsToCapabilities(updatedClients);
 
-      const result = await setCapabilities(gatewayServerId, capabilities)
+      const result = await setCapabilities(gatewayServerId, capabilities);
 
       if (result.success) {
-        toast.success('Configuration saved successfully')
+        toast.success('Configuration saved successfully');
         // Update local state
         setServerClients((prev) => ({
           ...prev,
-          [gatewayServerId]: updatedClients
-        }))
+          [gatewayServerId]: updatedClients,
+        }));
       } else {
-        toast.error(`Failed to save: ${result.error}`)
+        toast.error(`Failed to save: ${result.error}`);
       }
     } catch (error) {
-      console.error('Failed to save capabilities:', error)
-      toast.error('Failed to save configuration')
+      console.error('Failed to save capabilities:', error);
+      toast.error('Failed to save configuration');
     }
-  }
+  };
 
   // Close settings menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
+      const target = event.target as HTMLElement;
       if (showSettingsMenu && !target.closest('.relative')) {
-        setShowSettingsMenu(false)
+        setShowSettingsMenu(false);
       }
-    }
+    };
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showSettingsMenu])
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showSettingsMenu]);
 
-  const toggleTool = (
-    gatewayServerId: string,
-    clientId: string,
-    toolServerId: string
-  ) => {
+  const toggleTool = (gatewayServerId: string, clientId: string, toolServerId: string) => {
     console.log(
-      `🔧 toggleTool: gatewayServerId=${gatewayServerId}, clientId=${clientId}, toolServerId=${toolServerId}`
-    )
+      `🔧 toggleTool: gatewayServerId=${gatewayServerId}, clientId=${clientId}, toolServerId=${toolServerId}`,
+    );
 
-    const clients = serverClients[gatewayServerId] || []
+    const clients = serverClients[gatewayServerId] || [];
 
     // Find the corresponding tool
-    const client = clients.find((c) => c.id === clientId)
+    const client = clients.find((c) => c.id === clientId);
     const tool = client?.tools.find((t) =>
-      t.serverId ? t.serverId === toolServerId : t.name === toolServerId
-    )
+      t.serverId ? t.serverId === toolServerId : t.name === toolServerId,
+    );
 
     // If allowUserInput=true and not configured, trigger configuration flow (OAuth/API Key)
     if (tool && tool.allowUserInput && !tool.configured) {
       // If not authorized, clicking should trigger the authorization flow regardless of current check state
-      console.log(`   Tool requires authorization, triggering auth flow...`)
-      const toolId = `${gatewayServerId}-${clientId}-${toolServerId}`
-      handleOAuthAuth(gatewayServerId, tool.serverId, toolId, tool.authType)
-      return
+      console.log(`   Tool requires authorization, triggering auth flow...`);
+      const toolId = `${gatewayServerId}-${clientId}-${toolServerId}`;
+      handleOAuthAuth(gatewayServerId, tool.serverId, toolId, tool.authType);
+      return;
     }
 
     const updatedClients = clients.map((c) =>
@@ -1239,34 +1201,30 @@ function DashboardContent() {
             ...c,
             tools: c.tools.map((t) => {
               // Match using serverId, fallback to name if serverId doesn't exist
-              const match = t.serverId
-                ? t.serverId === toolServerId
-                : t.name === toolServerId
+              const match = t.serverId ? t.serverId === toolServerId : t.name === toolServerId;
               if (match) {
-                console.log(
-                  `   Toggling tool: ${t.name} (serverId: ${t.serverId})`
-                )
+                console.log(`   Toggling tool: ${t.name} (serverId: ${t.serverId})`);
               }
-              return match ? { ...t, enabled: !t.enabled } : t
-            })
+              return match ? { ...t, enabled: !t.enabled } : t;
+            }),
           }
-        : c
-    )
-    saveData(gatewayServerId, updatedClients)
-  }
+        : c,
+    );
+    saveData(gatewayServerId, updatedClients);
+  };
 
   const toggleFunction = (
     gatewayServerId: string,
     clientId: string,
     toolServerId: string,
     functionId: string,
-    isDataFunction = false
+    isDataFunction = false,
   ) => {
     console.log(
-      `🔧 toggleFunction: gatewayServerId=${gatewayServerId}, clientId=${clientId}, toolServerId=${toolServerId}, functionId=${functionId}`
-    )
+      `🔧 toggleFunction: gatewayServerId=${gatewayServerId}, clientId=${clientId}, toolServerId=${toolServerId}, functionId=${functionId}`,
+    );
 
-    const clients = serverClients[gatewayServerId] || []
+    const clients = serverClients[gatewayServerId] || [];
 
     const updatedClients = clients.map((c) =>
       c.id === clientId
@@ -1274,41 +1232,32 @@ function DashboardContent() {
             ...c,
             tools: c.tools.map((t) => {
               // Match by serverId, fall back to name when missing
-              const match = t.serverId
-                ? t.serverId === toolServerId
-                : t.name === toolServerId
+              const match = t.serverId ? t.serverId === toolServerId : t.name === toolServerId;
               if (match) {
-                const functionsKey = isDataFunction
-                  ? 'dataFunctions'
-                  : 'functions'
+                const functionsKey = isDataFunction ? 'dataFunctions' : 'functions';
                 const updatedTool = {
                   ...t,
                   [functionsKey]: t[functionsKey].map((f) =>
-                    f.id === functionId ? { ...f, enabled: !f.enabled } : f
-                  )
-                }
+                    f.id === functionId ? { ...f, enabled: !f.enabled } : f,
+                  ),
+                };
 
-                const hasEnabledFunctions = updatedTool.functions.some(
-                  (f) => f.enabled
-                )
-                const hasEnabledDataFunctions = updatedTool.dataFunctions.some(
-                  (f) => f.enabled
-                )
-                const toolShouldBeEnabled =
-                  hasEnabledFunctions || hasEnabledDataFunctions
+                const hasEnabledFunctions = updatedTool.functions.some((f) => f.enabled);
+                const hasEnabledDataFunctions = updatedTool.dataFunctions.some((f) => f.enabled);
+                const toolShouldBeEnabled = hasEnabledFunctions || hasEnabledDataFunctions;
 
                 return {
                   ...updatedTool,
-                  enabled: toolShouldBeEnabled
-                }
+                  enabled: toolShouldBeEnabled,
+                };
               }
-              return t
-            })
+              return t;
+            }),
           }
-        : c
-    )
-    saveData(gatewayServerId, updatedClients)
-  }
+        : c,
+    );
+    saveData(gatewayServerId, updatedClients);
+  };
 
   const updateDangerLevel = (
     gatewayServerId: string,
@@ -1316,13 +1265,13 @@ function DashboardContent() {
     toolServerId: string,
     functionId: string,
     newDangerLevel: number,
-    isDataFunction = false
+    isDataFunction = false,
   ) => {
     console.log(
-      `🔧 updateDangerLevel: gatewayServerId=${gatewayServerId}, clientId=${clientId}, toolServerId=${toolServerId}, functionId=${functionId}, newLevel=${newDangerLevel}`
-    )
+      `🔧 updateDangerLevel: gatewayServerId=${gatewayServerId}, clientId=${clientId}, toolServerId=${toolServerId}, functionId=${functionId}, newLevel=${newDangerLevel}`,
+    );
 
-    const clients = serverClients[gatewayServerId] || []
+    const clients = serverClients[gatewayServerId] || [];
 
     const updatedClients = clients.map((c) =>
       c.id === clientId
@@ -1330,101 +1279,85 @@ function DashboardContent() {
             ...c,
             tools: c.tools.map((t) => {
               // Match by serverId, fall back to name when missing
-              const match = t.serverId
-                ? t.serverId === toolServerId
-                : t.name === toolServerId
+              const match = t.serverId ? t.serverId === toolServerId : t.name === toolServerId;
               if (match) {
-                const functionsKey = isDataFunction
-                  ? 'dataFunctions'
-                  : 'functions'
+                const functionsKey = isDataFunction ? 'dataFunctions' : 'functions';
                 return {
                   ...t,
                   [functionsKey]: t[functionsKey].map((f) =>
-                    f.id === functionId
-                      ? { ...f, dangerLevel: newDangerLevel }
-                      : f
-                  )
-                }
+                    f.id === functionId ? { ...f, dangerLevel: newDangerLevel } : f,
+                  ),
+                };
               }
-              return t
-            })
+              return t;
+            }),
           }
-        : c
-    )
+        : c,
+    );
 
     // Log the updated data structure
-    console.log(
-      '📊 Updated Clients Data:',
-      JSON.stringify(updatedClients, null, 2)
-    )
+    console.log('📊 Updated Clients Data:', JSON.stringify(updatedClients, null, 2));
 
     // Convert to capabilities format and log
-    const capabilities = convertClientsToCapabilities(updatedClients)
-    console.log(
-      '📊 Converted Capabilities Data:',
-      JSON.stringify(capabilities, null, 2)
-    )
+    const capabilities = convertClientsToCapabilities(updatedClients);
+    console.log('📊 Converted Capabilities Data:', JSON.stringify(capabilities, null, 2));
 
-    saveData(gatewayServerId, updatedClients)
-  }
+    saveData(gatewayServerId, updatedClients);
+  };
 
   const handleSettingsClick = () => {
-    setShowSettingsMenu(!showSettingsMenu)
-  }
+    setShowSettingsMenu(!showSettingsMenu);
+  };
 
   const handleMenuItemClick = async (action: string) => {
-    setShowSettingsMenu(false)
+    setShowSettingsMenu(false);
 
     switch (action) {
       case 'add-server':
-        router.push('/mcp-setup')
-        break
+        router.push('/mcp-setup');
+        break;
       case 'server':
-        router.push('/server-management')
-        break
+        router.push('/server-management');
+        break;
       case 'client':
-        router.push('/add-mcp-client-manually?mode=add')
-        break
+        router.push('/add-mcp-client-manually?mode=add');
+        break;
       case 'security':
-        router.push('/security-settings')
-        break
+        router.push('/security-settings');
+        break;
       case 'backup':
-        router.push('/backup-restore')
-        break
+        router.push('/backup-restore');
+        break;
       case 'playground':
-        console.log('Navigate to playground')
-        break
+        console.log('Navigate to playground');
+        break;
       case 'reset':
-        router.push('/reset-master-password')
-        break
+        router.push('/reset-master-password');
+        break;
       case 'clear-cache':
-        await clearAllCache()
-        break
+        await clearAllCache();
+        break;
       default:
-        break
+        break;
     }
-  }
+  };
 
   const getStatusIndicator = (status: string) => {
     switch (status) {
       case 'connected':
-        return (
-          <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>
-        )
+        return <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></div>;
       case 'disconnected':
       case 'checking':
-        return (
-          <div className="w-2 h-2 rounded-full bg-gray-500 dark:bg-gray-400"></div>
-        )
+        return <div className="w-2 h-2 rounded-full bg-gray-500 dark:bg-gray-400"></div>;
       default:
         return (
           <>
             <div className="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400"></div>
             <div className="w-2 h-2 rounded-full bg-red-500 dark:bg-red-400"></div>
           </>
-        )
+        );
     }
-  }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -1433,23 +1366,15 @@ function DashboardContent() {
           <Badge className="bg-blue-400 text-white text-[10px] px-2 py-0 animate-pulse">
             Checking...
           </Badge>
-        )
+        );
       case 'connected':
-        return (
-          <Badge className="bg-green-500 text-white text-[10px] px-2 py-0">
-            Connected
-          </Badge>
-        )
+        return <Badge className="bg-green-500 text-white text-[10px] px-2 py-0">Connected</Badge>;
       case 'disconnected':
-        return (
-          <Badge className="bg-red-500 text-white text-[10px] px-2 py-0">
-            Disconnected
-          </Badge>
-        )
+        return <Badge className="bg-red-500 text-white text-[10px] px-2 py-0">Disconnected</Badge>;
       default:
-        return null
+        return null;
     }
-  }
+  };
 
   const handleDangerLevelChange = (
     gatewayServerId: string,
@@ -1458,10 +1383,10 @@ function DashboardContent() {
     functionId: string,
     newLevel: number,
     isDataFunction: boolean,
-    event: React.MouseEvent
+    event: React.MouseEvent,
   ) => {
-    event.preventDefault()
-    event.stopPropagation()
+    event.preventDefault();
+    event.stopPropagation();
 
     updateDangerLevel(
       gatewayServerId,
@@ -1469,22 +1394,22 @@ function DashboardContent() {
       toolServerId,
       functionId,
       newLevel,
-      isDataFunction
-    )
-  }
+      isDataFunction,
+    );
+  };
 
   const getDangerLevelLabel = (level?: number) => {
     switch (level) {
       case DangerLevel.Silent:
-        return 'Always allow'
+        return 'Always allow';
       case DangerLevel.Notification:
-        return 'Approval without Password'
+        return 'Approval without Password';
       case DangerLevel.Approval:
-        return 'Approval with Password'
+        return 'Approval with Password';
       default:
-        return 'Always allow'
+        return 'Always allow';
     }
-  }
+  };
 
   const renderFunctionList = (
     gatewayServerId: string,
@@ -1492,13 +1417,11 @@ function DashboardContent() {
     clientId: string,
     toolServerId: string,
     title: string,
-    isDataFunction = false
+    isDataFunction = false,
   ) => {
     return (
       <div className="mb-4">
-        <div className="text-[12px] font-medium text-gray-600 dark:text-gray-300 mb-2">
-          {title}
-        </div>
+        <div className="text-[12px] font-medium text-gray-600 dark:text-gray-300 mb-2">{title}</div>
 
         <div className="space-y-1 max-h-[108px] overflow-y-auto px-[10px] bg-[#F2F4F5] dark:bg-gray-800 rounded-[8px] border border-[rgba(0, 0, 0.04)] dark:border-gray-700">
           {functions.map((func) => (
@@ -1507,13 +1430,7 @@ function DashboardContent() {
                 type="checkbox"
                 checked={func.enabled}
                 onChange={() =>
-                  toggleFunction(
-                    gatewayServerId,
-                    clientId,
-                    toolServerId,
-                    func.id,
-                    isDataFunction
-                  )
+                  toggleFunction(gatewayServerId, clientId, toolServerId, func.id, isDataFunction)
                 }
                 className="w-3 h-3 text-blue-600 dark:text-blue-400 rounded border-gray-300 dark:border-gray-600 flex-shrink-0"
               />
@@ -1538,12 +1455,11 @@ function DashboardContent() {
                             func.id,
                             DangerLevel.Silent,
                             isDataFunction,
-                            e
+                            e,
                           )
                         }
                         className={`flex-shrink-0 transition-all p-[3px] rounded text-gray-900 dark:text-gray-100 ${
-                          (func.dangerLevel ?? DangerLevel.Silent) ===
-                          DangerLevel.Silent
+                          (func.dangerLevel ?? DangerLevel.Silent) === DangerLevel.Silent
                             ? 'bg-white/70 dark:bg-gray-700/70'
                             : 'bg-transparent'
                         }`}
@@ -1555,8 +1471,7 @@ function DashboardContent() {
                           viewBox="0 0 16 16"
                           fill="none"
                           className={`${
-                            (func.dangerLevel ?? DangerLevel.Silent) ===
-                            DangerLevel.Silent
+                            (func.dangerLevel ?? DangerLevel.Silent) === DangerLevel.Silent
                               ? 'opacity-100'
                               : 'opacity-50'
                           }`}
@@ -1595,7 +1510,7 @@ function DashboardContent() {
                             func.id,
                             DangerLevel.Approval,
                             isDataFunction,
-                            e
+                            e,
                           )
                         }
                         className={`flex-shrink-0 transition-all p-[3px] rounded text-gray-900 dark:text-gray-100 ${
@@ -1611,9 +1526,7 @@ function DashboardContent() {
                           viewBox="0 0 16 16"
                           fill="none"
                           className={`${
-                            func.dangerLevel === DangerLevel.Approval
-                              ? 'opacity-100'
-                              : 'opacity-50'
+                            func.dangerLevel === DangerLevel.Approval ? 'opacity-100' : 'opacity-50'
                           }`}
                         >
                           <g clipPath="url(#clip0_5405_15793)">
@@ -1650,7 +1563,7 @@ function DashboardContent() {
                             func.id,
                             DangerLevel.Notification,
                             isDataFunction,
-                            e
+                            e,
                           )
                         }
                         className={`flex-shrink-0 transition-all p-[3px] rounded text-gray-900 dark:text-gray-100 ${
@@ -1698,11 +1611,11 @@ function DashboardContent() {
           ))}
         </div>
       </div>
-    )
-  }
+    );
+  };
 
-  const allServers = storedServers?.map((server) => server.id) ?? []
-  const isServerSnapshotReady = storedServers !== null
+  const allServers = storedServers?.map((server) => server.id) ?? [];
+  const isServerSnapshotReady = storedServers !== null;
 
   return (
     <TooltipProvider>
@@ -1712,9 +1625,7 @@ function DashboardContent() {
         <div className="mx-auto px-[8px]">
           {!isServerSnapshotReady && (
             <div className="flex items-center justify-center py-8">
-              <div className="text-gray-500 dark:text-gray-400">
-                Loading dashboard...
-              </div>
+              <div className="text-gray-500 dark:text-gray-400">Loading dashboard...</div>
             </div>
           )}
 
@@ -1734,9 +1645,7 @@ function DashboardContent() {
 
           {isServerSnapshotReady && isLoading && allServers.length > 0 && (
             <div className="flex items-center justify-center py-8">
-              <div className="text-gray-500 dark:text-gray-400">
-                Loading dashboard data...
-              </div>
+              <div className="text-gray-500 dark:text-gray-400">Loading dashboard data...</div>
             </div>
           )}
 
@@ -1744,44 +1653,35 @@ function DashboardContent() {
           {isServerSnapshotReady &&
             !isLoading &&
             allServers.map((gatewayServerId) => {
-              const connection = connections.get(gatewayServerId)
-              const storedServer = storedServers.find(
-                (server) => server.id === gatewayServerId
-              )
+              const connection = connections.get(gatewayServerId);
+              const storedServer = storedServers.find((server) => server.id === gatewayServerId);
 
               const serverName =
-                connection?.serverName ||
-                storedServer?.serverName ||
-                gatewayServerId
+                connection?.serverName || storedServer?.serverName || gatewayServerId;
 
-              const activeClientsCount = connection?.activeClientsCount ?? 0
-              const connectionExists = !!connection
-              const isConnected = connection?.isConnected === true
-              const connectionFailed = connection?.connectionFailed === true
-              const hasEverConnected = !!connection?.lastConnectedAt
-              const isReconnecting = reconnectingServers.has(gatewayServerId)
+              const activeClientsCount = connection?.activeClientsCount ?? 0;
+              const connectionExists = !!connection;
+              const isConnected = connection?.isConnected === true;
+              const connectionFailed = connection?.connectionFailed === true;
+              const hasEverConnected = !!connection?.lastConnectedAt;
+              const isReconnecting = reconnectingServers.has(gatewayServerId);
               const isConnecting =
                 isReconnecting ||
-                (connectionExists &&
-                  !hasEverConnected &&
-                  !isConnected &&
-                  !connectionFailed)
-              const status: 'connecting' | 'connected' | 'failed' | 'disconnected' =
-                isConnecting
-                  ? 'connecting'
-                  : isConnected
-                    ? 'connected'
-                    : connectionFailed
-                      ? 'failed'
-                      : 'disconnected'
-              const showRetry = status === 'failed' || status === 'disconnected'
-              const statusLabel =
-                status === 'failed' ? 'Connect Failed' : 'Disconnected'
-              const clients = serverClients[gatewayServerId] || []
+                (connectionExists && !hasEverConnected && !isConnected && !connectionFailed);
+              const status: 'connecting' | 'connected' | 'failed' | 'disconnected' = isConnecting
+                ? 'connecting'
+                : isConnected
+                  ? 'connected'
+                  : connectionFailed
+                    ? 'failed'
+                    : 'disconnected';
+              const showRetry = status === 'failed' || status === 'disconnected';
+              const statusLabel = status === 'failed' ? 'Connect Failed' : 'Disconnected';
+              const clients = serverClients[gatewayServerId] || [];
 
               // Use activeClientsCount from socket notification for actual client connections
-              const totalClients = activeClientsCount
-              const clientText = totalClients === 1 ? 'Client' : 'Clients'
+              const totalClients = activeClientsCount;
+              const clientText = totalClients === 1 ? 'Client' : 'Clients';
 
               return (
                 <div
@@ -1805,8 +1705,8 @@ function DashboardContent() {
                           {/* Connection Status */}
                           {/* Connected: green dot */}
                           {status === 'connected' && (
-                              <span className="w-[6px] h-[6px] rounded-full flex-shrink-0 bg-[#34C759]"></span>
-                            )}
+                            <span className="w-[6px] h-[6px] rounded-full flex-shrink-0 bg-[#34C759]"></span>
+                          )}
 
                           {/* Connecting: gray tag */}
                           {status === 'connecting' && (
@@ -1846,28 +1746,21 @@ function DashboardContent() {
                               typeof window !== 'undefined' &&
                               window.electron?.showConnectionMenu
                             ) {
-                              const rect =
-                                e.currentTarget.getBoundingClientRect()
+                              const rect = e.currentTarget.getBoundingClientRect();
 
                               // Check actual configuration in client config files
                               const actualConfigured =
-                                await checkActualConfiguration(gatewayServerId)
+                                await checkActualConfiguration(gatewayServerId);
 
-                              console.log(
-                                '📋 Opening menu for server:',
-                                gatewayServerId
-                              )
-                              console.log(
-                                '📋 Actually configured apps:',
-                                actualConfigured
-                              )
+                              console.log('📋 Opening menu for server:', gatewayServerId);
+                              console.log('📋 Actually configured apps:', actualConfigured);
 
                               window.electron.showConnectionMenu(
                                 rect.left,
                                 rect.bottom + 4,
                                 gatewayServerId,
-                                actualConfigured
-                              )
+                                actualConfigured,
+                              );
                             }
                           }}
                           className="px-[12px] py-[4px] text-xs bg-[white] dark:bg-gray-900 text-[#26251E] dark:text-gray-100 rounded-[8px] border border-gray-200 dark:border-gray-700 transition-colors flex items-center gap-1 flex-shrink-0"
@@ -1897,7 +1790,7 @@ function DashboardContent() {
                             {client.tools.map((tool) => {
                               const toolId = `${gatewayServerId}-${client.id}-${
                                 tool.serverId || tool.name
-                              }`
+                              }`;
 
                               return (
                                 <div
@@ -1913,13 +1806,15 @@ function DashboardContent() {
                                         <input
                                           type="checkbox"
                                           checked={
-                                            tool.enabled && tool.configured
+                                            tool.allowUserInput
+                                              ? tool.enabled && tool.configured
+                                              : tool.enabled
                                           }
                                           onChange={() =>
                                             toggleTool(
                                               gatewayServerId,
                                               client.id,
-                                              tool.serverId || tool.name
+                                              tool.serverId || tool.name,
                                             )
                                           }
                                           className="w-4 h-4 text-blue-600 dark:text-blue-400 rounded border-gray-300 dark:border-gray-600"
@@ -1932,77 +1827,69 @@ function DashboardContent() {
 
                                       {/* Auth status indicators for OAuth tools */}
                                       {tool.allowUserInput && (
-                                          <>
-                                            {/* Connecting status */}
-                                            {authStatus[toolId] ===
-                                              'connecting' && (
-                                              <span className="px-2 py-0.5 text-xs rounded-md bg-gray-400 text-white">
-                                                Connecting...
-                                              </span>
-                                            )}
+                                        <>
+                                          {/* Connecting status */}
+                                          {authStatus[toolId] === 'connecting' && (
+                                            <span className="px-2 py-0.5 text-xs rounded-md bg-gray-400 text-white">
+                                              Connecting...
+                                            </span>
+                                          )}
 
-                                            {/* Failed status */}
-                                            {authStatus[toolId] ===
-                                              'failed' && (
-                                              <span className="px-2 py-0.5 text-xs rounded-md bg-red-500 text-white">
-                                                Connect failed
-                                              </span>
-                                            )}
+                                          {/* Failed status */}
+                                          {authStatus[toolId] === 'failed' && (
+                                            <span className="px-2 py-0.5 text-xs rounded-md bg-red-500 text-white">
+                                              Connect failed
+                                            </span>
+                                          )}
 
-                                            {/* Green dot - when configured and no error */}
-                                            {tool.configured &&
-                                              !authStatus[toolId] && (
-                                                <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                    <div className="w-2 h-2 bg-green-500 rounded-full cursor-default"></div>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>
-                                                    <p>Connected</p>
-                                                  </TooltipContent>
-                                                </Tooltip>
-                                              )}
-                                          </>
-                                        )}
+                                          {/* Green dot - when configured and no error */}
+                                          {tool.configured && !authStatus[toolId] && (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <div className="w-2 h-2 bg-green-500 rounded-full cursor-default"></div>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <p>Connected</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          )}
+                                        </>
+                                      )}
                                     </div>
 
                                     {/* Disconnect icon - shown when allowUserInput=true and configured */}
-                                    {tool.allowUserInput &&
-                                      tool.configured && (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <button
-                                              onClick={() =>
-                                                handleOAuthLogout(
-                                                  gatewayServerId,
-                                                  tool.serverId,
-                                                  tool.authType,
-                                                  tool.category
-                                                )
-                                              }
-                                              onMouseEnter={() =>
-                                                setHoveredDisconnectBtn(toolId)
-                                              }
-                                              onMouseLeave={() =>
-                                                setHoveredDisconnectBtn(null)
-                                              }
-                                              className="transition-colors"
-                                            >
-                                              <DisconnectIcon
-                                                isHovered={
-                                                  hoveredDisconnectBtn ===
-                                                  toolId
-                                                }
-                                              />
-                                            </button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>
-                                              Disconnect and remove
-                                              authorization
-                                            </p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      )}
+                                    {tool.allowUserInput && tool.configured && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={() =>
+                                              handleOAuthLogout(
+                                                gatewayServerId,
+                                                tool.serverId,
+                                                tool.authType,
+                                                tool.category,
+                                              )
+                                            }
+                                            onMouseEnter={() => setHoveredDisconnectBtn(toolId)}
+                                            onMouseLeave={() => setHoveredDisconnectBtn(null)}
+                                            className="transition-colors"
+                                          >
+                                            <DisconnectIcon
+                                              isHovered={hoveredDisconnectBtn === toolId}
+                                            />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>
+                                            {tool.category === ServerCategory.RestApi ||
+                                            tool.category === ServerCategory.CustomRemote ||
+                                            tool.category === ServerCategory.CustomStdio
+                                              ? 'Remove saved configuration'
+                                              : 'Disconnect and remove authorization'}
+                                          </p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
                                   </div>
 
                                   {/* Show details only when tool is enabled */}
@@ -2016,11 +1903,9 @@ function DashboardContent() {
                                             client.id,
                                             tool.serverId || tool.name,
                                             `Functions - ${
-                                              tool.functions.filter(
-                                                (f) => f.enabled
-                                              ).length
+                                              tool.functions.filter((f) => f.enabled).length
                                             }/${tool.functions.length} enable`,
-                                            false
+                                            false,
                                           )}
                                         </div>
                                       )}
@@ -2033,20 +1918,16 @@ function DashboardContent() {
                                             client.id,
                                             tool.serverId || tool.name,
                                             `Data - ${
-                                              tool.dataFunctions.filter(
-                                                (f) => f.enabled
-                                              ).length
-                                            }/${
-                                              tool.dataFunctions.length
-                                            } enable`,
-                                            true
+                                              tool.dataFunctions.filter((f) => f.enabled).length
+                                            }/${tool.dataFunctions.length} enable`,
+                                            true,
                                           )}
                                         </div>
                                       )}
                                     </div>
                                   )}
                                 </div>
-                              )
+                              );
                             })}
                           </div>
                         </div>
@@ -2054,7 +1935,7 @@ function DashboardContent() {
                     </div>
                   ))}
                 </div>
-              )
+              );
             })}
         </div>
 
@@ -2063,33 +1944,46 @@ function DashboardContent() {
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-900 rounded-[10px] p-[16px] max-w-[260px] w-full shadow-xl">
               <h2 className="text-[13px] font-bold text-center text-[#26251e] dark:text-gray-100 mb-[10px]">
-                Disconnect Authorization?
+                {(() => {
+                  if (!disconnectTargetServerId) return 'Disconnect?';
+                  const [, , , categoryStr] = disconnectTargetServerId.split(':');
+                  const cat = parseInt(categoryStr, 10);
+                  if (
+                    cat === ServerCategory.RestApi ||
+                    cat === ServerCategory.CustomRemote ||
+                    cat === ServerCategory.CustomStdio
+                  ) {
+                    return 'Remove Configuration?';
+                  }
+                  return 'Disconnect Authorization?';
+                })()}
               </h2>
               <p className="text-[11px] text-center text-gray-900 dark:text-gray-100 leading-[14px] mb-[16px]">
                 {(() => {
-                  if (!disconnectTargetServerId)
-                    return 'This service is not configured'
+                  if (!disconnectTargetServerId) return 'This service is not configured';
 
-                  // Parse gatewayServerId and mcpServerId
-                  const [gatewayServerId, mcpServerId] =
-                    disconnectTargetServerId.split(':')
-
+                  const [, mcpServerId, , categoryStr] = disconnectTargetServerId.split(':');
                   // Find the tool name for the disconnecting server
-                  let tool = null
+                  let tool = null;
                   Object.values(serverClients).forEach((clients) => {
                     const client = clients.find((c) =>
-                      c.tools.some((t) => t.serverId === mcpServerId)
-                    )
+                      c.tools.some((t) => t.serverId === mcpServerId),
+                    );
                     if (client) {
-                      tool = client.tools.find(
-                        (t) => t.serverId === mcpServerId
-                      )
+                      tool = client.tools.find((t) => t.serverId === mcpServerId);
                     }
-                  })
+                  });
 
+                  const cat = parseInt(categoryStr, 10);
+                  const isConfigBased =
+                    cat === ServerCategory.RestApi ||
+                    cat === ServerCategory.CustomRemote ||
+                    cat === ServerCategory.CustomStdio;
                   return tool
-                    ? `${tool.name}`
-                    : 'This service is not configured'
+                    ? isConfigBased
+                      ? `Remove saved settings for ${tool.name}?`
+                      : `${tool.name}`
+                    : 'This service is not configured';
                 })()}
               </p>
               <div className="flex gap-[8px]">
@@ -2105,7 +1999,20 @@ function DashboardContent() {
                   disabled={isAuthenticating}
                   className="flex-1 h-[28px] rounded-[5px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[13px] font-medium transition-colors shadow-[inset_0_0.5px_0_rgba(255,255,255,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isAuthenticating ? 'Disconnecting...' : 'Disconnect'}
+                  {(() => {
+                    if (isAuthenticating) return 'Processing...';
+                    if (!disconnectTargetServerId) return 'Confirm';
+                    const [, , , catStr] = disconnectTargetServerId.split(':');
+                    const cat = parseInt(catStr, 10);
+                    if (
+                      cat === ServerCategory.RestApi ||
+                      cat === ServerCategory.CustomRemote ||
+                      cat === ServerCategory.CustomStdio
+                    ) {
+                      return 'Remove';
+                    }
+                    return 'Disconnect';
+                  })()}
                 </button>
               </div>
             </div>
@@ -2118,16 +2025,14 @@ function DashboardContent() {
             <div className="bg-white dark:bg-gray-900 rounded-lg p-6 shadow-xl">
               <div className="flex items-center space-x-3">
                 <LoadingSpinner className="w-6 h-6" />
-                <p className="text-gray-700 dark:text-gray-200">
-                  Disconnecting...
-                </p>
+                <p className="text-gray-700 dark:text-gray-200">Disconnecting...</p>
               </div>
             </div>
           </div>
         )}
       </div>
     </TooltipProvider>
-  )
+  );
 }
 
 export default function DashboardPage() {
@@ -2135,5 +2040,5 @@ export default function DashboardPage() {
     <Suspense fallback={<div>Loading dashboard...</div>}>
       <DashboardContent />
     </Suspense>
-  )
+  );
 }
