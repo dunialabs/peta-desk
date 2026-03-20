@@ -732,29 +732,24 @@ function DashboardContent() {
 
   // OAuth authorization handling
   // Helper function to get auth type display name
+  const authTypeNames: Record<ServerAuthType, string> = {
+    [ServerAuthType.ApiKey]: 'API Key',
+    [ServerAuthType.GoogleAuth]: 'Google Drive',
+    [ServerAuthType.NotionAuth]: 'Notion',
+    [ServerAuthType.FigmaAuth]: 'Figma',
+    [ServerAuthType.GoogleCalendarAuth]: 'Google Calendar',
+    [ServerAuthType.GithubAuth]: 'GitHub',
+    [ServerAuthType.ZendeskAuth]: 'Zendesk',
+    [ServerAuthType.CanvasAuth]: 'Canvas',
+    [ServerAuthType.CanvaAuth]: 'Canva',
+    [ServerAuthType.GmailAuth]: 'Gmail',
+    [ServerAuthType.GoogleDocsAuth]: 'Google Docs',
+    [ServerAuthType.GoogleSheetsAuth]: 'Google Sheets',
+    [ServerAuthType.GoogleFormsAuth]: 'Google Forms',
+  };
+
   const getAuthTypeName = (authType: ServerAuthType): string => {
-    switch (authType) {
-      case ServerAuthType.ApiKey:
-        return 'API Key';
-      case ServerAuthType.GoogleAuth:
-        return 'Google Drive';
-      case ServerAuthType.NotionAuth:
-        return 'Notion';
-      case ServerAuthType.FigmaAuth:
-        return 'Figma';
-      case ServerAuthType.GoogleCalendarAuth:
-        return 'Google Calendar';
-      case ServerAuthType.GithubAuth:
-        return 'GitHub';
-      case ServerAuthType.ZendeskAuth:
-        return 'Zendesk';
-      case ServerAuthType.CanvasAuth:
-        return 'Canvas';
-      case ServerAuthType.CanvaAuth:
-        return 'Canva';
-      default:
-        return 'OAuth';
-    }
+    return authTypeNames[authType] ?? 'OAuth';
   };
 
   const handleOAuthAuth = async (

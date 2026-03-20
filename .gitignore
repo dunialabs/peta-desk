@@ -80,6 +80,7 @@ lerna-debug.log*
 *.swo
 *~
 .eslintcache
+*.tsbuildinfo
 
 # Claude Code settings (local)
 .claude/settings.local.json
