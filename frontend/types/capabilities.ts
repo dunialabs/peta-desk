@@ -44,6 +44,8 @@ export enum ServerAuthType {
   GoogleDocsAuth = 11, // Google Docs OAuth authentication
   GoogleSheetsAuth = 12, // Google Sheets OAuth authentication
   GoogleFormsAuth = 13, // Google Forms OAuth authentication
+  PipedriveAuth = 14, // Pipedrive OAuth authentication
+  HubSpotAuth = 15, // HubSpot OAuth authentication
 }
 
 export enum ServerCategory {

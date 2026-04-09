@@ -746,6 +746,8 @@ function DashboardContent() {
     [ServerAuthType.GoogleDocsAuth]: 'Google Docs',
     [ServerAuthType.GoogleSheetsAuth]: 'Google Sheets',
     [ServerAuthType.GoogleFormsAuth]: 'Google Forms',
+    [ServerAuthType.PipedriveAuth]: 'Pipedrive',
+    [ServerAuthType.HubSpotAuth]: 'HubSpot',
   };
 
   const getAuthTypeName = (authType: ServerAuthType): string => {
