@@ -923,7 +923,9 @@ function DashboardContent() {
           const isCanvaAuth =
             configTemplateObj?.authType === ServerAuthType.CanvaAuth ||
             effectiveAuthType === ServerAuthType.CanvaAuth;
-          const redirectUri = isCanvaAuth ? 'http://127.0.0.1:34327' : 'http://localhost';
+          const redirectUri =
+            oAuthConfig.redirectUri?.trim() ||
+            (isCanvaAuth ? 'https://127.0.0.1:34327' : 'https://localhost');
           let pkceVerifier: string | undefined;
           let resolvedOAuthConfig = {
             ...oAuthConfig,

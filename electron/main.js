@@ -1232,7 +1232,7 @@ ipcMain.handle('backup:downloadBackup', async (event, filename) => {
 
 // ==================== OAuth Authorization API ====================
 
-const DEFAULT_OAUTH_REDIRECT_URI = 'http://localhost'
+const DEFAULT_OAUTH_REDIRECT_URI = 'https://localhost'
 
 function getOAuthRedirectUri(config) {
   if (
