@@ -1232,7 +1232,7 @@ ipcMain.handle('backup:downloadBackup', async (event, filename) => {
 
 // ==================== OAuth Authorization API ====================
 
-const DEFAULT_OAUTH_REDIRECT_URI = 'https://localhost'
+const DEFAULT_OAUTH_REDIRECT_URI = 'https://peta.io'
 
 function getOAuthRedirectUri(config) {
   if (

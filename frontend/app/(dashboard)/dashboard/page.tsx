@@ -920,18 +920,14 @@ function DashboardContent() {
             return;
           }
 
-          const isCanvaAuth =
-            configTemplateObj?.authType === ServerAuthType.CanvaAuth ||
-            effectiveAuthType === ServerAuthType.CanvaAuth;
-          const redirectUri =
-            oAuthConfig.redirectUri?.trim() ||
-            (isCanvaAuth ? 'https://127.0.0.1:34327' : 'https://localhost');
-          let pkceVerifier: string | undefined;
+          const redirectUri = oAuthConfig.redirectUri?.trim() || 'https://peta.io';
+          
           let resolvedOAuthConfig = {
             ...oAuthConfig,
             redirectUri,
           };
 
+          let pkceVerifier: string | undefined;
           try {
             const pkceConfig = getOAuthPKCEConfig(oAuthConfig);
             if (pkceConfig.required) {
