@@ -12,6 +12,7 @@ const {
 } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const crypto = require('crypto')
 const biometricAuth = require('./biometric-auth')
 const passwordManager = require('./password-manager')
 const MCPConfigManager = require('./mcp-config-manager')
@@ -1246,7 +1247,20 @@ function getOAuthRedirectUri(config) {
   return DEFAULT_OAUTH_REDIRECT_URI
 }
 
-function buildAuthorizationUrl(config, redirectUri) {
+function getOAuthState(config) {
+  if (
+    config &&
+    config.extraParams &&
+    typeof config.extraParams.state === 'string' &&
+    config.extraParams.state.trim() !== ''
+  ) {
+    return config.extraParams.state
+  }
+
+  return crypto.randomBytes(32).toString('hex')
+}
+
+function buildAuthorizationUrl(config, redirectUri, state) {
   const url = new URL(config.authorizationUrl)
 
   url.searchParams.set('client_id', config.deskClientId)
@@ -1263,6 +1277,8 @@ function buildAuthorizationUrl(config, redirectUri) {
     }
   }
 
+  url.searchParams.set('state', state)
+
   return url.toString()
 }
 
@@ -1271,10 +1287,11 @@ function parseAuthorizationCallback(url) {
     const urlObj = new URL(url)
     return {
       code: urlObj.searchParams.get('code'),
-      error: urlObj.searchParams.get('error')
+      error: urlObj.searchParams.get('error'),
+      state: urlObj.searchParams.get('state')
     }
   } catch (error) {
-    return { code: null, error: 'Invalid URL' }
+    return { code: null, error: 'Invalid URL', state: null }
   }
 }
 
@@ -1297,7 +1314,8 @@ ipcMain.handle('oauth:authorize', async (event, config) => {
     }
 
     const redirectUri = getOAuthRedirectUri(config)
-    const authUrl = buildAuthorizationUrl(config, redirectUri)
+    const state = getOAuthState(config)
+    const authUrl = buildAuthorizationUrl(config, redirectUri, state)
 
     return await new Promise((resolve) => {
       let isHandled = false
@@ -1337,9 +1355,12 @@ ipcMain.handle('oauth:authorize', async (event, config) => {
         if (isHandled) return
         isHandled = true
 
-        const { code, error } = parseAuthorizationCallback(url)
+        const { code, error, state: callbackState } =
+          parseAuthorizationCallback(url)
 
-        if (error) {
+        if (!callbackState || callbackState !== state) {
+          resolve({ success: false, error: 'Invalid OAuth state' })
+        } else if (error) {
           resolve({ success: false, error })
         } else if (!code) {
           resolve({ success: false, error: 'Authorization code not found' })
