@@ -11,6 +11,7 @@ interface StoredMCPServer {
   serverName: string
   serverUrl: string
   token: string // Encrypted token
+  proxyKey?: string
 }
 
 interface ProtocolData {
@@ -20,6 +21,92 @@ interface ProtocolData {
     url: string
     decodedUrl?: string
     proxyKey?: string
+    flowId?: string
+    callback?: string
+  }
+}
+
+interface DeskCallbackResponse {
+  status?: string
+  error?: string
+  error_description?: string
+}
+
+const DESK_CALLBACK_PATH = '/authorize/desk/callback'
+
+const validateDeskCallbackUrl = (
+  callbackUrl: string,
+  authorizationUrl: string
+): string | null => {
+  try {
+    const callback = new URL(callbackUrl)
+    const authorization = new URL(authorizationUrl)
+
+    if (callback.protocol !== 'http:' && callback.protocol !== 'https:') {
+      return 'Invalid callback URL: only http and https are allowed'
+    }
+
+    if (callback.origin !== authorization.origin) {
+      return (
+        'Invalid callback URL: callback origin does not match authorization server'
+      )
+    }
+
+    if (callback.pathname !== DESK_CALLBACK_PATH) {
+      return 'Invalid callback URL: unsupported callback path'
+    }
+
+    return null
+  } catch {
+    return 'Invalid callback URL'
+  }
+}
+
+const completeDeskAuthorization = async (
+  callbackUrl: string,
+  flowId: string,
+  token: string
+): Promise<void> => {
+  const response = await fetch(callbackUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      flow_id: flowId,
+      user_token: token
+    })
+  })
+
+  let data: DeskCallbackResponse = {}
+  try {
+    data = await response.json()
+  } catch {
+    // Core should return JSON. Keep a generic message for non-JSON failures.
+  }
+
+  if (!response.ok || data.status !== 'completed') {
+    throw new Error(
+      data.error_description ||
+        data.error ||
+        'Authorization failed. Please try again.'
+    )
+  }
+}
+
+const appendTokenToUrl = (url: string, token: string): string => {
+  return `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(
+    token
+  )}`
+}
+
+const getRedactedUrlForLog = (url: string): string => {
+  try {
+    const parsed = new URL(url)
+    parsed.searchParams.delete('token')
+    return `${parsed.origin}${parsed.pathname}${parsed.search}`
+  } catch {
+    return '[invalid-url]'
   }
 }
 
@@ -35,6 +122,11 @@ export default function ProtocolHandlerPage() {
   const [targetUrl, setTargetUrl] = useState('')
   const [returnUrl, setReturnUrl] = useState('/dashboard')
   const [isLoading, setIsLoading] = useState(true) // Loading state
+  const [successMessage, setSuccessMessage] = useState('')
+
+  const isDeskCallbackFlow = Boolean(
+    protocolData?.params.flowId && protocolData?.params.callback
+  )
 
   // Read protocol data from sessionStorage with polling
   useEffect(() => {
@@ -249,9 +341,10 @@ export default function ProtocolHandlerPage() {
   }
 
   /**
-   * Handle opening the browser
+   * Complete client authorization by either calling Core's Desk callback or
+   * falling back to the legacy browser-token flow.
    */
-  const handleOpenBrowser = async () => {
+  const handleAuthorizeClient = async () => {
     if (!selectedServerId) {
       setError('Please select a server')
       return
@@ -264,6 +357,7 @@ export default function ProtocolHandlerPage() {
 
     setIsProcessing(true)
     setError('')
+    setSuccessMessage('')
 
     try {
       // Verify master password
@@ -311,13 +405,39 @@ export default function ProtocolHandlerPage() {
       const decryptedToken = decryptResult.token
       console.log('[Protocol Handler] Token decrypted successfully')
 
-      // Build final URL (original URL + token)
-      const finalUrl = `${targetUrl}${
-        targetUrl.includes('?') ? '&' : '?'
-      }token=${encodeURIComponent(decryptedToken)}`
-      console.log('[Protocol Handler] Opening browser with URL:', finalUrl)
+      const flowId = protocolData?.params.flowId
+      const callbackUrl = protocolData?.params.callback
 
-      // Open browser
+      if (flowId && callbackUrl) {
+        const validationError = validateDeskCallbackUrl(callbackUrl, targetUrl)
+        if (validationError) {
+          setError(validationError)
+          setIsProcessing(false)
+          return
+        }
+
+        await completeDeskAuthorization(callbackUrl, flowId, decryptedToken)
+        console.log('[Protocol Handler] Desk authorization callback completed')
+        setSuccessMessage(
+          'Authorization completed. You can return to the browser.'
+        )
+        setIsProcessing(false)
+
+        // Return to previous page after success
+        setTimeout(() => {
+          console.log('[Protocol Handler] Returning to:', returnUrl)
+          router.push(returnUrl)
+        }, 500)
+        return
+      }
+
+      // Legacy flow: open the authorization URL with token in the browser.
+      const finalUrl = appendTokenToUrl(targetUrl, decryptedToken)
+      console.log(
+        '[Protocol Handler] Opening browser for authorization URL:',
+        getRedactedUrlForLog(finalUrl)
+      )
+
       if (window.electron?.shell) {
         await window.electron.shell.openExternal(finalUrl)
 
@@ -332,7 +452,11 @@ export default function ProtocolHandlerPage() {
       }
     } catch (error) {
       console.error('[Protocol Handler] Error:', error)
-      setError('An error occurred while processing the request')
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'An error occurred while processing the request'
+      )
       setIsProcessing(false)
     }
   }
@@ -431,7 +555,10 @@ export default function ProtocolHandlerPage() {
                   </div>
                   <div className="text-[12px] text-blue-700 dark:text-blue-300 mt-1">
                     The server token is encrypted. Enter your master password to
-                    decrypt it and open the URL.
+                    decrypt it and{' '}
+                    {isDeskCallbackFlow
+                      ? 'complete authorization.'
+                      : 'open the URL.'}
                   </div>
                 </div>
               </div>
@@ -451,10 +578,11 @@ export default function ProtocolHandlerPage() {
                   onChange={(e) => {
                     setPassword(e.target.value)
                     setError('')
+                    setSuccessMessage('')
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !isProcessing) {
-                      handleOpenBrowser()
+                      handleAuthorizeClient()
                     }
                   }}
                   placeholder="Enter master password"
@@ -478,6 +606,11 @@ export default function ProtocolHandlerPage() {
               {error && (
                 <p className="text-[14px] text-red-500 dark:text-red-400 mt-2">{error}</p>
               )}
+              {successMessage && (
+                <p className="text-[14px] text-green-600 dark:text-green-400 mt-2">
+                  {successMessage}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -494,11 +627,20 @@ export default function ProtocolHandlerPage() {
             </button>
             {matchedServers.length > 0 && (
               <button
-                onClick={handleOpenBrowser}
-                disabled={!selectedServerId || !password || isProcessing}
+                onClick={handleAuthorizeClient}
+                disabled={
+                  !selectedServerId ||
+                  !password ||
+                  isProcessing ||
+                  Boolean(successMessage)
+                }
                 className="flex-1 h-[48px] rounded-[12px] bg-[#26251E] dark:bg-gray-700 hover:bg-[#3A3933] dark:hover:bg-gray-600 text-white text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isProcessing ? 'Processing...' : 'Open Browser'}
+                {isProcessing
+                  ? 'Processing...'
+                  : isDeskCallbackFlow
+                    ? 'Authorize'
+                    : 'Open Browser'}
               </button>
             )}
           </div>
